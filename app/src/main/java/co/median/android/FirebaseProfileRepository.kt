@@ -4,7 +4,10 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.os.Handler
 import android.os.Looper
+import org.json.JSONArray
 import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
@@ -57,8 +60,16 @@ object FirebaseProfileRepository {
     private const val KEY_PREFERENCES = "profile_preferences"
 
     private const val FIREBASE_PROJECT_ID = "get-job-link"
+    private const val ADMIN_EMAIL = "sdivyanshu352@gmail.com"
+
     private val executor = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    @JvmStatic
+    fun isAdminEmail(email: String?): Boolean {
+        if (email.isNullOrEmpty()) return false
+        return email.trim().equals(ADMIN_EMAIL, ignoreCase = true)
+    }
 
     @JvmStatic
     fun getOrCreateUserId(context: Context): String {
@@ -75,16 +86,19 @@ object FirebaseProfileRepository {
     fun loadLocalProfile(context: Context): UserProfile {
         val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val userId = getOrCreateUserId(context)
+        val email = prefs.getString(KEY_EMAIL, "") ?: ""
+        val role = if (isAdminEmail(email)) "admin" else (prefs.getString(KEY_ROLE, "user") ?: "user")
+
         return UserProfile(
             id = userId,
             name = prefs.getString(KEY_NAME, "") ?: "",
-            email = prefs.getString(KEY_EMAIL, "") ?: "",
+            email = email,
             phone = prefs.getString(KEY_PHONE, "") ?: "",
             jobRole = prefs.getString(KEY_JOB_ROLE, "") ?: "",
             skills = prefs.getString(KEY_SKILLS, "") ?: "",
             location = prefs.getString(KEY_LOCATION, "") ?: "",
             bio = prefs.getString(KEY_BIO, "") ?: "",
-            role = prefs.getString(KEY_ROLE, "user") ?: "user",
+            role = role,
             dob = prefs.getString(KEY_DOB, "") ?: "",
             linkedInUrl = prefs.getString(KEY_LINKEDIN, "") ?: "",
             githubUrl = prefs.getString(KEY_GITHUB, "") ?: "",
@@ -101,6 +115,8 @@ object FirebaseProfileRepository {
     @JvmStatic
     fun saveProfileLocally(context: Context, profile: UserProfile) {
         val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val resolvedRole = if (isAdminEmail(profile.email)) "admin" else profile.role
+
         prefs.edit()
             .putString(KEY_NAME, profile.name)
             .putString(KEY_EMAIL, profile.email)
@@ -109,7 +125,7 @@ object FirebaseProfileRepository {
             .putString(KEY_SKILLS, profile.skills)
             .putString(KEY_LOCATION, profile.location)
             .putString(KEY_BIO, profile.bio)
-            .putString(KEY_ROLE, profile.role)
+            .putString(KEY_ROLE, resolvedRole)
             .putString(KEY_DOB, profile.dob)
             .putString(KEY_LINKEDIN, profile.linkedInUrl)
             .putString(KEY_GITHUB, profile.githubUrl)
@@ -143,6 +159,8 @@ object FirebaseProfileRepository {
                 connection.connectTimeout = 10000
                 connection.readTimeout = 10000
 
+                val resolvedRole = if (isAdminEmail(profile.email)) "admin" else profile.role
+
                 val fieldsObj = JSONObject().apply {
                     put("name", JSONObject().put("stringValue", profile.name))
                     put("email", JSONObject().put("stringValue", profile.email))
@@ -151,7 +169,7 @@ object FirebaseProfileRepository {
                     put("skills", JSONObject().put("stringValue", profile.skills))
                     put("location", JSONObject().put("stringValue", profile.location))
                     put("bio", JSONObject().put("stringValue", profile.bio))
-                    put("role", JSONObject().put("stringValue", profile.role))
+                    put("role", JSONObject().put("stringValue", resolvedRole))
                     put("dob", JSONObject().put("stringValue", profile.dob))
                     put("linkedInUrl", JSONObject().put("stringValue", profile.linkedInUrl))
                     put("githubUrl", JSONObject().put("stringValue", profile.githubUrl))
@@ -187,6 +205,86 @@ object FirebaseProfileRepository {
                 e.printStackTrace()
                 mainHandler.post {
                     onResult(true, "Profile saved locally!")
+                }
+            }
+        }
+    }
+
+    @JvmStatic
+    fun fetchJobsFromFirestore(onResult: (Boolean, String) -> Unit) {
+        executor.execute {
+            try {
+                val firestoreUrl = "https://firestore.googleapis.com/v1/projects/$FIREBASE_PROJECT_ID/databases/(default)/documents/jobs"
+                val url = URL(firestoreUrl)
+                val connection = url.openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 10000
+                connection.readTimeout = 10000
+
+                val responseCode = connection.responseCode
+                if (responseCode in 200..299) {
+                    val reader = BufferedReader(InputStreamReader(connection.inputStream))
+                    val responseStr = reader.readText()
+                    reader.close()
+
+                    val root = JSONObject(responseStr)
+                    val docs = root.optJSONArray("documents") ?: JSONArray()
+                    val jobsArray = JSONArray()
+
+                    for (i in 0 until docs.length()) {
+                        val doc = docs.getJSONObject(i)
+                        val name = doc.optString("name", "")
+                        val jobId = name.substringAfterLast("/")
+                        val fields = doc.optJSONObject("fields") ?: JSONObject()
+
+                        val title = fields.optJSONObject("title")?.optString("stringValue") ?: "Software Engineer"
+                        val company = fields.optJSONObject("company")?.optString("stringValue") ?: "Tech Company"
+                        val location = fields.optJSONObject("location")?.optString("stringValue") ?: "Remote"
+                        val type = fields.optJSONObject("type")?.optString("stringValue") ?: fields.optJSONObject("jobType")?.optString("stringValue") ?: "Full Time"
+                        val salary = fields.optJSONObject("salary")?.optString("stringValue") ?: "Competitive"
+                        val experience = fields.optJSONObject("experience")?.optString("stringValue") ?: "1-3 Years"
+                        val description = fields.optJSONObject("description")?.optString("stringValue") ?: ""
+                        val applicationUrl = fields.optJSONObject("applicationUrl")?.optString("stringValue") ?: "https://example.com/apply"
+
+                        val reqSkillsObj = fields.optJSONObject("requiredSkills")
+                        val reqSkills = mutableListOf<String>()
+                        if (reqSkillsObj != null) {
+                            val arrayValues = reqSkillsObj.optJSONObject("arrayValue")?.optJSONArray("values")
+                            if (arrayValues != null) {
+                                for (j in 0 until arrayValues.length()) {
+                                    val valObj = arrayValues.getJSONObject(j)
+                                    reqSkills.add(valObj.optString("stringValue", ""))
+                                }
+                            }
+                        }
+
+                        val item = JSONObject().apply {
+                            put("id", jobId)
+                            put("title", title)
+                            put("company", company)
+                            put("location", location)
+                            put("type", type)
+                            put("salary", salary)
+                            put("experience", experience)
+                            put("description", description)
+                            put("applicationUrl", applicationUrl)
+                            put("requiredSkills", JSONArray(reqSkills))
+                        }
+                        jobsArray.put(item)
+                    }
+
+                    mainHandler.post {
+                        onResult(true, jobsArray.toString())
+                    }
+                } else {
+                    mainHandler.post {
+                        onResult(false, "Failed to load jobs from Firestore")
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                mainHandler.post {
+                    onResult(false, e.localizedMessage ?: "Network error fetching jobs")
                 }
             }
         }
