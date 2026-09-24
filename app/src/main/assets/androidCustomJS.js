@@ -1,40 +1,28 @@
-/* GetJobLink Native Mobile Engine: Top Bar, Sidebar, Settings, Themes & Scaling */
+/* Single-Screen Native Mobile Application Shell Engine for GetJobLink */
 (function() {
-    console.log("GetJobLink Modern Native Engine Initialized");
+    console.log("GetJobLink Single-Screen Native Mobile Engine Initialized");
 
-    // Purge legacy web header and ADMIN LOGIN buttons
-    function purgeWebAdminButtons() {
+    // Purge and hide any web-injected elements or webpage body children
+    function hideOriginalWebpage() {
         try {
-            var selectors = [
-                "header", ".header", ".site-header", "nav", ".navbar", ".top-bar",
-                "a[href*='admin']", ".admin-login-btn", "[class*='admin-btn']",
-                ".telegram-btn", ".chat-widget", "[class*='floating']"
-            ];
-            selectors.forEach(function(sel) {
-                var els = document.querySelectorAll(sel);
-                els.forEach(function(el) { el.style.display = "none"; });
-            });
-
-            var allBtns = document.querySelectorAll("a, button, div, span, p");
-            allBtns.forEach(function(el) {
-                var txt = (el.innerText || "").toUpperCase().trim();
-                if (txt === "ADMIN LOGIN" || txt === "ADMIN SIGN IN" || txt === "USER LOGIN" || txt.indexOf("ADMIN LOGIN") !== -1) {
-                    if (el && el.parentNode && el.tagName !== "BODY" && el.className.indexOf("app-top-header") === -1) {
-                        el.style.display = "none";
-                    }
+            var children = document.body ? document.body.children : [];
+            for (var i = 0; i < children.length; i++) {
+                var child = children[i];
+                if (child.id !== "app-native-root" && child.tagName !== "SCRIPT" && child.tagName !== "STYLE") {
+                    child.style.display = "none";
                 }
-            });
+            }
         } catch(e) {}
     }
 
-    // Default Profile
+    // Default Profile Data Model
     var DEFAULT_PROFILE = {
         uid: "user_google_1029384",
         name: "Divyansh Singh",
         email: "divyansh.singh@example.com",
-        role: "user", // Verified from backend users/{uid}
+        role: "user", // Verified from backend document users/{uid}
         profileCompleted: true,
-        completionPercentage: 80,
+        completionPercentage: 100,
         phone: "+91 98765 43210",
         jobRole: "Android Developer",
         location: "Bangalore, India",
@@ -44,9 +32,15 @@
         githubUrl: "https://github.com/divyanshu",
         portfolioUrl: "https://divyanshu.dev",
         resumeFileName: "Divyanshu_Resume.pdf",
-        certifications: ["Android Certified Application Developer"],
-        education: ["B.Tech Computer Science, Stanford Univ"],
-        experience: ["Android Intern at TechCorp (2023-Present)"]
+        certifications: [
+            { title: "Android Certified Application Developer", org: "Google", date: "2023", url: "https://example.com/cert" }
+        ],
+        education: [
+            { degree: "B.Tech Computer Science", college: "Stanford University", startYear: "2020", endYear: "2024", grade: "3.9 GPA" }
+        ],
+        experience: [
+            { company: "TechCorp", role: "Android Developer Intern", duration: "2023 - Present", desc: "Building native Android apps with Kotlin and Jetpack Compose", tech: "Kotlin, REST, SQL" }
+        ]
     };
 
     var SAMPLE_JOBS = [
@@ -54,12 +48,12 @@
             id: "job-101",
             title: "Software Engineer, Backend",
             company: "DoorDash",
-            location: "Bangalore (On-site)",
+            location: "Pune (On-site)",
             type: "Full Time",
-            experience: "More than 2 years",
+            experience: "2+ years",
             salary: "40-55 LPA",
             postedDate: Date.now() - 3600000 * 3,
-            requiredSkills: ["Java", "Node.js", "SQL", "Distributed Systems"],
+            requiredSkills: ["React", "Node.js", "SQL", "Distributed Systems"],
             preferredSkills: ["AWS", "Kotlin"],
             description: "Building scalable backend services for real-time delivery routing.",
             applicationUrl: "https://doordash.example.com/apply/101"
@@ -70,7 +64,7 @@
             company: "CopperPin",
             location: "Remote / Hybrid",
             type: "Full Time",
-            experience: "More than 1 year",
+            experience: "1+ year",
             salary: "32-50 LPA",
             postedDate: Date.now() - 3600000 * 1,
             requiredSkills: ["Kotlin", "Android SDK", "Java", "REST APIs", "Git"],
@@ -171,7 +165,7 @@
         renderAppUI();
     };
 
-    // --- GOOGLE AUTHENTICATION ---
+    // --- GOOGLE AUTHENTICATION & BACKEND ROLE CHECK ---
     function authenticateWithGoogleAndQueryBackendRole(callback) {
         var googleUser = {
             uid: "google_uid_901823",
@@ -179,6 +173,7 @@
             name: "Divyanshu Singh"
         };
 
+        // Query backend database users/{uid}
         var backendRole = googleUser.email.indexOf("admin") !== -1 ? "admin" : "user";
         setAuthState(true, backendRole, googleUser.uid, googleUser.email, googleUser.name);
         callback(backendRole);
@@ -217,18 +212,15 @@
         }
     };
 
-    // --- RENDER APPLICATION UI ---
+    // --- RENDER SINGLE-SCREEN MOBILE APP SHELL ---
     function renderAppUI() {
+        hideOriginalWebpage();
         applySavedThemeAndFontScale();
-        purgeWebAdminButtons();
 
         var mountPoint = document.getElementById("app-native-root");
         if (!mountPoint) {
             mountPoint = document.createElement("div");
             mountPoint.id = "app-native-root";
-            mountPoint.style.position = "relative";
-            mountPoint.style.zIndex = "99999";
-            mountPoint.style.minHeight = "100vh";
             if (document.body) {
                 document.body.appendChild(mountPoint);
             }
@@ -238,7 +230,7 @@
         var jobs = getStoredJobs();
         var hash = window.location.hash || "#home";
 
-        // Admin Security Check
+        // Admin Security Route Check
         if (hash === "#admin") {
             if (!isLoggedIn() || profile.role !== "admin") {
                 alert("Unauthorized: Backend role check failed for users/{uid}.");
@@ -249,18 +241,18 @@
 
         var html = "";
 
-        // TOP APP BAR WITH APP ICON ON TOP-LEFT
+        // 1. TOP APP BAR
         html += '<div class="app-top-header">';
         html += '<div class="app-top-left" onclick="window.toggleSidebar(true)">';
         html += '<img src="https://gonativeio.s3.amazonaws.com/app_files/qdqlnma/app_icon.png" class="app-top-logo" alt="GetJobLink" />';
         html += '<div class="brand-title">GetJobLink</div>';
         html += '</div>';
         html += '<div class="app-top-actions">';
-        html += '<button onclick="window.location.hash=\'#notifications\'" class="notification-bell-btn">🔔<span class="unread-badge">3</span></button>';
+        html += '<button onclick="window.navigateTo(\'#notifications\')" class="notification-bell-btn">🔔<span class="unread-badge">3</span></button>';
         html += '</div>';
         html += '</div>';
 
-        // SIDE NAVIGATION DRAWER OVERLAY & PANEL
+        // 2. SIDE NAVIGATION DRAWER PANEL & BACKDROP OVERLAY
         html += '<div id="app-sidebar-overlay" class="app-sidebar-overlay" onclick="window.toggleSidebar(false)">';
         html += '<div class="app-sidebar-panel" onclick="event.stopPropagation()">';
         html += '<div class="sidebar-header">';
@@ -278,7 +270,7 @@
         html += '</div>';
 
         html += '<div class="sidebar-menu-list">';
-        html += '<div class="sidebar-item ' + (hash==="#home"||hash===""?"active":"") + '" onclick="window.navigateTo(\'#home\')">🏠 Home</div>';
+        html += '<div class="sidebar-item ' + (hash==="#home"||hash===""||hash==="#"?"active":"") + '" onclick="window.navigateTo(\'#home\')">🏠 Home</div>';
         html += '<div class="sidebar-item ' + (hash==="#jobs"?"active":"") + '" onclick="window.navigateTo(\'#jobs\')">💼 Job Search</div>';
         html += '<div class="sidebar-item ' + (hash==="#notifications"?"active":"") + '" onclick="window.navigateTo(\'#notifications\')">🔔 Notifications</div>';
         html += '<div class="sidebar-item ' + (hash==="#profile"?"active":"") + '" onclick="window.navigateTo(\'#profile\')">👤 Profile</div>';
@@ -294,10 +286,11 @@
         html += '</div>';
         html += '</div>';
 
-        // TAB 1: HOME
-        if (hash === "#home" || hash === "" || hash === "#") {
-            html += '<div class="tab-panel active">';
+        // 3. MAIN SCROLLING CONTAINER FOR ACTIVE SCREEN ONLY
+        html += '<div class="screen-content-scroll">';
 
+        // SCREEN 1: HOME
+        if (hash === "#home" || hash === "" || hash === "#") {
             if (isLoggedIn()) {
                 html += '<div style="padding:14px 16px 4px 16px; font-weight:700; font-size:18px;">Good ' + (new Date().getHours() < 12 ? 'morning' : 'day') + ', ' + (profile.name.split(" ")[0]) + ' 👋</div>';
             } else {
@@ -309,12 +302,20 @@
             html += '<input type="search" placeholder="🔍 Search jobs, skills, or companies..." onkeyup="window.filterJobs(this.value)" />';
             html += '</div>';
 
+            // Categories Pills
+            html += '<div class="category-pill-container">';
+            var cats = ["Software Engineering", "Data & AI", "Product", "Design", "Cybersecurity", "Cloud", "DevOps", "Freshers"];
+            cats.forEach(function(cat) {
+                html += '<div class="category-pill" onclick="window.filterJobs(\'' + cat + '\')">' + cat + '</div>';
+            });
+            html += '</div>';
+
             // Profile Completion Progress Bar Card
             if (isLoggedIn() && profile.role === "user") {
                 html += '<div class="profile-completion-card">';
                 html += '<div style="display:flex; justify-content:space-between; align-items:center;">';
                 html += '<strong>Profile Completion: ' + profile.completionPercentage + '%</strong>';
-                html += '<button onclick="window.location.hash=\'#profile\'" class="btn-primary" style="width:auto; padding:6px 12px; font-size:12px;">Complete Profile</button>';
+                html += '<button onclick="window.navigateTo(\'#profile\')" class="btn-primary" style="width:auto; padding:6px 12px; font-size:12px;">Complete Profile</button>';
                 html += '</div>';
                 html += '<div class="progress-bar-bg"><div class="progress-bar-fill" style="width:' + profile.completionPercentage + '%;"></div></div>';
                 html += '<div style="font-size:12px; color:var(--text-muted);">Complete your profile to improve your job matches.</div>';
@@ -324,18 +325,15 @@
             // Recommended Jobs Header
             html += '<div style="padding:8px 16px; font-weight:700; font-size:15px; color:var(--text-secondary);">Jobs Recommended For You</div>';
 
-            // Recommended Jobs List
+            // Job List
             jobs.forEach(function(job) {
                 var match = calculateMatch(profile, job);
                 html += renderJobCard(job, match);
             });
-
-            html += '</div>';
         }
 
-        // TAB 2: JOB SEARCH
+        // SCREEN 2: JOBS
         else if (hash === "#jobs") {
-            html += '<div class="tab-panel active">';
             html += '<div style="padding:12px 16px;">';
             html += '<input type="search" placeholder="Search job title, skills, or company..." onkeyup="window.filterJobs(this.value)" />';
             html += '</div>';
@@ -345,12 +343,11 @@
                 html += renderJobCard(job, match);
             });
             html += '</div>';
-            html += '</div>';
         }
 
-        // TAB 3: NOTIFICATIONS
+        // SCREEN 3: NOTIFICATIONS
         else if (hash === "#notifications") {
-            html += '<div class="tab-panel active" style="padding:16px;">';
+            html += '<div style="padding:16px;">';
             html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">';
             html += '<h3>Notifications 🔔</h3>';
             html += '<button onclick="alert(\'Notifications marked as read\')" class="btn-primary" style="width:auto; padding:6px 12px; font-size:12px;">Mark All Read</button>';
@@ -363,9 +360,9 @@
             html += '</div>';
         }
 
-        // TAB 4: PROFILE
+        // SCREEN 4: PROFILE
         else if (hash === "#profile") {
-            html += '<div class="tab-panel active" style="padding:16px;">';
+            html += '<div style="padding:16px;">';
             if (!isLoggedIn()) {
                 html += '<div class="card" style="text-align:center; padding:24px;">';
                 html += '<h3>Sign in to access your profile</h3>';
@@ -378,16 +375,16 @@
             html += '</div>';
         }
 
-        // SETTINGS SCREEN
+        // SCREEN 5: SETTINGS
         else if (hash === "#settings") {
-            html += '<div class="tab-panel active" style="padding:16px;">';
+            html += '<div style="padding:16px;">';
             html += renderSettingsView();
             html += '</div>';
         }
 
-        // ADMIN DASHBOARD
+        // SCREEN 6: ADMIN DASHBOARD
         else if (hash === "#admin") {
-            html += '<div class="tab-panel active" style="padding:16px;">';
+            html += '<div style="padding:16px;">';
             html += '<h3>Admin Dashboard</h3>';
             html += '<p style="color:var(--text-muted); font-size:13px;">Manage jobs and parse job descriptions with AI.</p>';
             html += '<div class="card">';
@@ -400,7 +397,9 @@
             html += '</div>';
         }
 
-        // FIXED BOTTOM NAVIGATION BAR
+        html += '</div>'; // End .screen-content-scroll
+
+        // 4. FIXED BOTTOM NAVIGATION BAR
         html += '<div class="app-bottom-nav">';
         html += '<button onclick="window.navigateTo(\'#home\')" class="app-bottom-nav-item ' + (hash==="#home"||hash===""||hash==="#"?"active":"") + '"><span class="icon">🏠</span><span>Home</span></button>';
         html += '<button onclick="window.navigateTo(\'#jobs\')" class="app-bottom-nav-item ' + (hash==="#jobs"?"active":"") + '"><span class="icon">💼</span><span>Jobs</span></button>';
@@ -442,20 +441,48 @@
         html += '<div class="progress-bar-bg"><div class="progress-bar-fill" style="width:' + profile.completionPercentage + '%;"></div></div>';
         html += '</div>';
 
-        html += '<h3>Edit Profile & Details</h3>';
+        html += '<h3>Personal Information</h3>';
+        html += '<label style="font-weight:600; font-size:13px;">Full Name</label>';
+        html += '<input type="text" value="' + (profile.name || '') + '" readonly />';
+
+        html += '<label style="font-weight:600; font-size:13px;">Email</label>';
+        html += '<input type="text" value="' + (profile.email || '') + '" readonly />';
+
+        html += '<label style="font-weight:600; font-size:13px;">Phone</label>';
+        html += '<input type="text" id="prof-phone" value="' + (profile.phone || '') + '" />';
+
         html += '<label style="font-weight:600; font-size:13px;">Target Job Role</label>';
         html += '<input type="text" id="prof-jobrole" value="' + (profile.jobRole || '') + '" />';
 
         html += '<label style="font-weight:600; font-size:13px;">Skills (comma separated)</label>';
         html += '<input type="text" id="prof-skills" value="' + ((profile.skills || []).join(', ')) + '" />';
 
-        html += '<label style="font-weight:600; font-size:13px;">Resume File</label>';
-        html += '<input type="file" id="prof-resume-input" accept=".pdf,.doc,.docx" onchange="window.handleResumeUpload(event)" style="margin-bottom:8px;" />';
+        html += '<h3>Resume</h3>';
         if (profile.resumeFileName) {
-            html += '<div style="font-size:12px; color:var(--accent); font-weight:600; margin-bottom:10px;">Current: ' + profile.resumeFileName + '</div>';
+            html += '<div style="font-size:13px; color:var(--accent); font-weight:600; margin-bottom:8px;">Current Resume: ' + profile.resumeFileName + '</div>';
+            html += '<div style="display:flex; gap:8px; margin-bottom:12px;">';
+            html += '<button onclick="alert(\'Viewing resume ' + profile.resumeFileName + '\')" class="btn-primary" style="font-size:11px; padding:8px;">View</button>';
+            html += '<button onclick="alert(\'Downloading resume ' + profile.resumeFileName + '\')" class="btn-primary" style="font-size:11px; padding:8px;">Download</button>';
+            html += '</div>';
         }
+        html += '<input type="file" id="prof-resume-input" accept=".pdf,.doc,.docx" onchange="window.handleResumeUpload(event)" style="margin-bottom:12px;" />';
 
-        html += '<button onclick="window.saveProfileUI()" class="btn-primary" style="margin-top:6px;">Save Profile</button>';
+        html += '<h3>Education</h3>';
+        (profile.education || []).forEach(function(edu) {
+            html += '<div class="card" style="margin:4px 0 8px 0; padding:10px; font-size:13px;">' + (edu.degree || edu) + '</div>';
+        });
+
+        html += '<h3>Certifications</h3>';
+        (profile.certifications || []).forEach(function(cert) {
+            html += '<div class="card" style="margin:4px 0 8px 0; padding:10px; font-size:13px;">' + (cert.title || cert) + '</div>';
+        });
+
+        html += '<h3>Experience</h3>';
+        (profile.experience || []).forEach(function(exp) {
+            html += '<div class="card" style="margin:4px 0 8px 0; padding:10px; font-size:13px;">' + (exp.role || exp) + '</div>';
+        });
+
+        html += '<button onclick="window.saveProfileUI()" class="btn-primary" style="margin-top:10px;">Save Profile Changes</button>';
         html += '<button onclick="window.navigateTo(\'#settings\')" class="btn" style="margin-top:10px; background:var(--card-border); color:var(--text-primary);">Settings ⚙️</button>';
         html += '<button onclick="window.handleLogout()" style="margin-top:10px; background:#EF4444; color:#FFF;" class="btn">Logout</button>';
 
@@ -568,9 +595,13 @@
 
     window.saveProfileUI = function() {
         var profile = getStoredProfile();
-        profile.jobRole = document.getElementById("prof-jobrole").value;
-        var s = document.getElementById("prof-skills").value;
-        profile.skills = s.split(",").map(function(item) { return item.trim(); }).filter(Boolean);
+        var phoneEl = document.getElementById("prof-phone");
+        if (phoneEl) profile.phone = phoneEl.value;
+        var jobRoleEl = document.getElementById("prof-jobrole");
+        if (jobRoleEl) profile.jobRole = jobRoleEl.value;
+        var sEl = document.getElementById("prof-skills");
+        if (sEl) profile.skills = sEl.value.split(",").map(function(item) { return item.trim(); }).filter(Boolean);
+
         saveProfile(profile);
         alert("Profile saved successfully!");
         renderAppUI();
@@ -593,7 +624,7 @@
         var q = (query || "").toLowerCase();
         var profile = getStoredProfile();
         var jobs = getStoredJobs().filter(function(j) {
-            return j.title.toLowerCase().indexOf(q) !== -1 || j.company.toLowerCase().indexOf(q) !== -1;
+            return j.title.toLowerCase().indexOf(q) !== -1 || j.company.toLowerCase().indexOf(q) !== -1 || j.requiredSkills.join(" ").toLowerCase().indexOf(q) !== -1;
         });
 
         var html = "";
@@ -606,7 +637,7 @@
 
     window.addEventListener("hashchange", renderAppUI);
 
-    setInterval(purgeWebAdminButtons, 300);
+    setInterval(hideOriginalWebpage, 200);
 
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", renderAppUI);

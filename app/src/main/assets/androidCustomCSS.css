@@ -1,6 +1,6 @@
-/* Modern Native Android Theme & Scaling Styles for Get Job Link */
+/* Single-Screen Native Mobile Application Shell Styles for GetJobLink */
 
-/* LIGHT THEME TOKENS (DEFAULT) */
+/* LIGHT THEME TOKENS */
 :root {
   --app-font-scale: 1;
   --base-font-size: calc(14px * var(--app-font-scale));
@@ -38,11 +38,17 @@ body.theme-dark {
   --input-bg: #0F172A !important;
 }
 
-/* Force Mobile Viewport & Dynamic Text Scaling */
+/* HIDE ORIGINAL WEBSITE DOM DIRECTLY */
+body > *:not(#app-native-root) {
+  display: none !important;
+}
+
 html, body {
   width: 100% !important;
+  height: 100% !important;
   max-width: 100vw !important;
-  overflow-x: hidden !important;
+  max-height: 100vh !important;
+  overflow: hidden !important;
   margin: 0 !important;
   padding: 0 !important;
   box-sizing: border-box !important;
@@ -51,7 +57,6 @@ html, body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
   font-size: var(--base-font-size) !important;
   -webkit-tap-highlight-color: transparent !important;
-  padding-bottom: 75px !important;
 }
 
 *, *:before, *:after {
@@ -59,25 +64,32 @@ html, body {
   max-width: 100% !important;
 }
 
-/* HIDE EMBEDDED WEB HEADERS & ADMIN LOGIN BUTTONS FROM WEB DOM */
-header, .header, .site-header, nav, .navbar, .top-bar,
-a[href*="admin"], .admin-login-btn, [class*="admin-btn"],
-.telegram-btn, .chat-widget, [class*="floating"] {
-  display: none !important;
+/* NATIVE APP SHELL ROOT */
+#app-native-root {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background-color: var(--bg-color) !important;
+  z-index: 99999 !important;
+  overflow: hidden !important;
 }
 
-/* TOP APP BAR WITH APP ICON ON TOP-LEFT */
+/* TOP APP BAR */
 .app-top-header {
-  position: sticky !important;
-  top: 0 !important;
-  z-index: 999 !important;
+  height: 56px !important;
+  min-height: 56px !important;
   background: var(--header-bg) !important;
   color: #FFFFFF !important;
-  padding: 10px 16px !important;
+  padding: 0 16px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
   box-shadow: var(--shadow-md) !important;
+  z-index: 1000 !important;
 }
 
 .app-top-left {
@@ -88,7 +100,7 @@ a[href*="admin"], .admin-login-btn, [class*="admin-btn"],
 }
 
 .app-top-logo {
-  width: 32px !important;
+  width: 30px !important;
   height: 32px !important;
   border-radius: 8px !important;
   object-fit: cover !important;
@@ -102,13 +114,6 @@ a[href*="admin"], .admin-login-btn, [class*="admin-btn"],
   color: #FFFFFF !important;
 }
 
-.app-top-actions {
-  display: flex !important;
-  align-items: center !important;
-  gap: 12px !important;
-}
-
-/* NOTIFICATION BADGE */
 .notification-bell-btn {
   position: relative !important;
   background: transparent !important;
@@ -133,7 +138,15 @@ a[href*="admin"], .admin-login-btn, [class*="admin-btn"],
   line-height: 1 !important;
 }
 
-/* SIDE NAVIGATION DRAWER / SIDEBAR OVERLAY & PANEL */
+/* SCREEN CONTENT CONTAINER */
+.screen-content-scroll {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  padding-bottom: 75px !important; /* Prevents content from hiding behind bottom nav */
+}
+
+/* SIDEBAR DRAWER OVERLAY & PANEL */
 .app-sidebar-overlay {
   position: fixed !important;
   top: 0 !important;
@@ -141,7 +154,7 @@ a[href*="admin"], .admin-login-btn, [class*="admin-btn"],
   width: 100vw !important;
   height: 100vh !important;
   background-color: rgba(15, 23, 42, 0.6) !important;
-  z-index: 9999 !important;
+  z-index: 999999 !important;
   opacity: 0 !important;
   visibility: hidden !important;
   transition: opacity 0.25s ease, visibility 0.25s ease !important;
@@ -159,7 +172,7 @@ a[href*="admin"], .admin-login-btn, [class*="admin-btn"],
   width: 280px !important;
   height: 100vh !important;
   background-color: var(--sidebar-bg) !important;
-  z-index: 10000 !important;
+  z-index: 1000000 !important;
   box-shadow: 4px 0 20px rgba(0, 0, 0, 0.2) !important;
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
   display: flex !important;
@@ -185,9 +198,9 @@ a[href*="admin"], .admin-login-btn, [class*="admin-btn"],
 }
 
 .sidebar-header-brand img {
-  width: 38px !important;
-  height: 38px !important;
-  border-radius: 10px !important;
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 8px !important;
 }
 
 .sidebar-header-title {
@@ -220,7 +233,6 @@ a[href*="admin"], .admin-login-btn, [class*="admin-btn"],
   color: var(--text-primary) !important;
   cursor: pointer !important;
   margin-bottom: 4px !important;
-  transition: background-color 0.15s ease !important;
 }
 
 .sidebar-item:active, .sidebar-item.active {
@@ -246,7 +258,7 @@ a[href*="admin"], .admin-login-btn, [class*="admin-btn"],
   display: flex !important;
   align-items: center !important;
   justify-content: space-around !important;
-  z-index: 999999 !important;
+  z-index: 999998 !important;
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.08) !important;
 }
 
@@ -334,6 +346,37 @@ a[href*="admin"], .admin-login-btn, [class*="admin-btn"],
   color: #475569 !important;
 }
 
+/* CATEGORY PILLS */
+.category-pill-container {
+  display: flex !important;
+  overflow-x: auto !important;
+  gap: 8px !important;
+  padding: 8px 16px !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+.category-pill-container::-webkit-scrollbar {
+  display: none !important;
+}
+
+.category-pill {
+  padding: 6px 14px !important;
+  border-radius: 20px !important;
+  font-size: calc(12px * var(--app-font-scale)) !important;
+  font-weight: 600 !important;
+  background-color: var(--card-bg) !important;
+  border: 1px solid var(--card-border) !important;
+  color: var(--text-secondary) !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+}
+
+.category-pill.active {
+  background-color: var(--accent) !important;
+  color: #FFFFFF !important;
+  border-color: var(--accent) !important;
+}
+
 /* INPUTS & BUTTONS */
 input[type="text"], input[type="email"], input[type="password"], input[type="search"], select, textarea {
   width: 100% !important;
@@ -371,7 +414,7 @@ button.btn-google, .btn-google {
   gap: 10px !important;
 }
 
-/* SETTINGS OPTIONS LIST & RADIO SELECTORS */
+/* SETTINGS OPTIONS */
 .settings-group {
   margin-bottom: 20px !important;
 }
@@ -426,12 +469,4 @@ button.btn-google, .btn-google {
   height: 100% !important;
   background: linear-gradient(90deg, #0D9488, #10B981) !important;
   border-radius: 4px !important;
-}
-
-.tab-panel {
-  display: none !important;
-}
-
-.tab-panel.active {
-  display: block !important;
 }
