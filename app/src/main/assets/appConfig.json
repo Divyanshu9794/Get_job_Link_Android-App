@@ -266,7 +266,7 @@
     "iosHeaderImage": "https://gonativeio.s3.amazonaws.com/app_files/qdqlnma/app_icon.png",
     "iosIcon": "https://gonativeio.s3.amazonaws.com/app_files/qdqlnma/app_icon.png",
     "iosTheme": "default",
-    "showActionBar": true,
+    "showActionBar": false,
     "androidBackgroundColor": "#FFFFFF",
     "androidBackgroundColorDark": "#0F172A",
     "androidSidebarBackgroundColor": "#F8FAFC",

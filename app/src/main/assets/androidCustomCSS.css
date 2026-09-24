@@ -99,12 +99,18 @@ html, body {
   cursor: pointer !important;
 }
 
-.app-top-logo {
-  width: 30px !important;
+.app-top-logo-badge {
+  width: 32px !important;
   height: 32px !important;
   border-radius: 8px !important;
-  object-fit: cover !important;
-  background-color: #FFFFFF !important;
+  background: linear-gradient(135deg, #0D9488 0%, #0F766E 100%) !important;
+  color: #FFFFFF !important;
+  font-weight: 800 !important;
+  font-size: 18px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
 }
 
 .app-top-header .brand-title {

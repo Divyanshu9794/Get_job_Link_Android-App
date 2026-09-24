@@ -2,7 +2,6 @@
 (function() {
     console.log("GetJobLink Single-Screen Native Mobile Engine Initialized");
 
-    // Purge and hide any web-injected elements or webpage body children
     function hideOriginalWebpage() {
         try {
             var children = document.body ? document.body.children : [];
@@ -15,12 +14,11 @@
         } catch(e) {}
     }
 
-    // Default Profile Data Model
     var DEFAULT_PROFILE = {
         uid: "user_google_1029384",
         name: "Divyansh Singh",
         email: "divyansh.singh@example.com",
-        role: "user", // Verified from backend document users/{uid}
+        role: "user",
         profileCompleted: true,
         completionPercentage: 100,
         phone: "+91 98765 43210",
@@ -135,7 +133,6 @@
         saveProfile(profile);
     }
 
-    // --- THEME & TEXT SCALING SYSTEM ---
     function applySavedThemeAndFontScale() {
         var theme = localStorage.getItem("getjoblink_theme") || "system";
         var isDark = theme === "dark";
@@ -165,7 +162,6 @@
         renderAppUI();
     };
 
-    // --- GOOGLE AUTHENTICATION & BACKEND ROLE CHECK ---
     function authenticateWithGoogleAndQueryBackendRole(callback) {
         var googleUser = {
             uid: "google_uid_901823",
@@ -173,13 +169,11 @@
             name: "Divyanshu Singh"
         };
 
-        // Query backend database users/{uid}
         var backendRole = googleUser.email.indexOf("admin") !== -1 ? "admin" : "user";
         setAuthState(true, backendRole, googleUser.uid, googleUser.email, googleUser.name);
         callback(backendRole);
     }
 
-    // --- MATCH CALCULATOR ---
     function calculateMatch(profile, job) {
         if (!isLoggedIn()) return { overall: 0, isGuest: true };
 
@@ -200,7 +194,6 @@
         return { overall: score, isGuest: false };
     }
 
-    // --- SIDEBAR TOGGLE ---
     window.toggleSidebar = function(open) {
         var overlay = document.getElementById("app-sidebar-overlay");
         if (overlay) {
@@ -212,7 +205,6 @@
         }
     };
 
-    // --- RENDER SINGLE-SCREEN MOBILE APP SHELL ---
     function renderAppUI() {
         hideOriginalWebpage();
         applySavedThemeAndFontScale();
@@ -230,7 +222,6 @@
         var jobs = getStoredJobs();
         var hash = window.location.hash || "#home";
 
-        // Admin Security Route Check
         if (hash === "#admin") {
             if (!isLoggedIn() || profile.role !== "admin") {
                 alert("Unauthorized: Backend role check failed for users/{uid}.");
@@ -241,68 +232,66 @@
 
         var html = "";
 
-        // 1. TOP APP BAR
+        // TOP APP BAR
         html += '<div class="app-top-header">';
         html += '<div class="app-top-left" onclick="window.toggleSidebar(true)">';
-        html += '<img src="https://gonativeio.s3.amazonaws.com/app_files/qdqlnma/app_icon.png" class="app-top-logo" alt="GetJobLink" />';
+        html += '<div class="app-top-logo-badge">G</div>';
         html += '<div class="brand-title">GetJobLink</div>';
         html += '</div>';
         html += '<div class="app-top-actions">';
-        html += '<button onclick="window.navigateTo(\'#notifications\')" class="notification-bell-btn">🔔<span class="unread-badge">3</span></button>';
+        html += '<button onclick="window.navigateTo(\'#notifications\')" class="notification-bell-btn">&#128276;<span class="unread-badge">3</span></button>';
         html += '</div>';
         html += '</div>';
 
-        // 2. SIDE NAVIGATION DRAWER PANEL & BACKDROP OVERLAY
+        // SIDE NAVIGATION DRAWER PANEL & BACKDROP OVERLAY
         html += '<div id="app-sidebar-overlay" class="app-sidebar-overlay" onclick="window.toggleSidebar(false)">';
         html += '<div class="app-sidebar-panel" onclick="event.stopPropagation()">';
         html += '<div class="sidebar-header">';
         html += '<div class="sidebar-header-brand">';
-        html += '<img src="https://gonativeio.s3.amazonaws.com/app_files/qdqlnma/app_icon.png" alt="GetJobLink" />';
+        html += '<div class="app-top-logo-badge">G</div>';
         html += '<div class="sidebar-header-title">GetJobLink</div>';
         html += '</div>';
         html += '<div class="sidebar-user-info">';
         if (isLoggedIn()) {
-            html += '👤 ' + profile.name;
+            html += '&#128100; ' + profile.name;
         } else {
-            html += '👤 Guest User';
+            html += '&#128100; Guest User';
         }
         html += '</div>';
         html += '</div>';
 
         html += '<div class="sidebar-menu-list">';
-        html += '<div class="sidebar-item ' + (hash==="#home"||hash===""||hash==="#"?"active":"") + '" onclick="window.navigateTo(\'#home\')">🏠 Home</div>';
-        html += '<div class="sidebar-item ' + (hash==="#jobs"?"active":"") + '" onclick="window.navigateTo(\'#jobs\')">💼 Job Search</div>';
-        html += '<div class="sidebar-item ' + (hash==="#notifications"?"active":"") + '" onclick="window.navigateTo(\'#notifications\')">🔔 Notifications</div>';
-        html += '<div class="sidebar-item ' + (hash==="#profile"?"active":"") + '" onclick="window.navigateTo(\'#profile\')">👤 Profile</div>';
-        html += '<div class="sidebar-item ' + (hash==="#settings"?"active":"") + '" onclick="window.navigateTo(\'#settings\')">⚙️ Settings</div>';
+        html += '<div class="sidebar-item ' + (hash==="#home"||hash===""||hash==="#"?"active":"") + '" onclick="window.navigateTo(\'#home\')">&#127968; Home</div>';
+        html += '<div class="sidebar-item ' + (hash==="#jobs"?"active":"") + '" onclick="window.navigateTo(\'#jobs\')">&#128188; Job Search</div>';
+        html += '<div class="sidebar-item ' + (hash==="#notifications"?"active":"") + '" onclick="window.navigateTo(\'#notifications\')">&#128276; Notifications</div>';
+        html += '<div class="sidebar-item ' + (hash==="#profile"?"active":"") + '" onclick="window.navigateTo(\'#profile\')">&#128100; Profile</div>';
+        html += '<div class="sidebar-item ' + (hash==="#settings"?"active":"") + '" onclick="window.navigateTo(\'#settings\')">&#9881; Settings</div>';
         html += '<div class="sidebar-divider"></div>';
 
         if (isLoggedIn()) {
-            html += '<div class="sidebar-item" onclick="window.handleLogout()">🚪 Logout</div>';
+            html += '<div class="sidebar-item" onclick="window.handleLogout()">&#128682; Logout</div>';
         } else {
-            html += '<div class="sidebar-item" onclick="window.handleSignInModal()">🔑 Sign In</div>';
+            html += '<div class="sidebar-item" onclick="window.handleSignInModal()">&#128065; Sign In</div>';
         }
         html += '</div>';
         html += '</div>';
         html += '</div>';
 
-        // 3. MAIN SCROLLING CONTAINER FOR ACTIVE SCREEN ONLY
+        // MAIN SCROLLING CONTAINER
         html += '<div class="screen-content-scroll">';
 
         // SCREEN 1: HOME
         if (hash === "#home" || hash === "" || hash === "#") {
             if (isLoggedIn()) {
-                html += '<div style="padding:14px 16px 4px 16px; font-weight:700; font-size:18px;">Good ' + (new Date().getHours() < 12 ? 'morning' : 'day') + ', ' + (profile.name.split(" ")[0]) + ' 👋</div>';
+                html += '<div style="padding:14px 16px 4px 16px; font-weight:700; font-size:18px;">Good ' + (new Date().getHours() < 12 ? 'morning' : 'day') + ', ' + (profile.name.split(" ")[0]) + '</div>';
             } else {
                 html += '<div style="padding:14px 16px 4px 16px; font-weight:700; font-size:18px;">Welcome to GetJobLink</div>';
             }
 
-            // Search Bar
             html += '<div style="padding:8px 16px;">';
-            html += '<input type="search" placeholder="🔍 Search jobs, skills, or companies..." onkeyup="window.filterJobs(this.value)" />';
+            html += '<input type="search" placeholder="Search jobs, skills, or companies..." onkeyup="window.filterJobs(this.value)" />';
             html += '</div>';
 
-            // Categories Pills
             html += '<div class="category-pill-container">';
             var cats = ["Software Engineering", "Data & AI", "Product", "Design", "Cybersecurity", "Cloud", "DevOps", "Freshers"];
             cats.forEach(function(cat) {
@@ -310,7 +299,6 @@
             });
             html += '</div>';
 
-            // Profile Completion Progress Bar Card
             if (isLoggedIn() && profile.role === "user") {
                 html += '<div class="profile-completion-card">';
                 html += '<div style="display:flex; justify-content:space-between; align-items:center;">';
@@ -322,10 +310,8 @@
                 html += '</div>';
             }
 
-            // Recommended Jobs Header
             html += '<div style="padding:8px 16px; font-weight:700; font-size:15px; color:var(--text-secondary);">Jobs Recommended For You</div>';
 
-            // Job List
             jobs.forEach(function(job) {
                 var match = calculateMatch(profile, job);
                 html += renderJobCard(job, match);
@@ -349,11 +335,11 @@
         else if (hash === "#notifications") {
             html += '<div style="padding:16px;">';
             html += '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">';
-            html += '<h3>Notifications 🔔</h3>';
+            html += '<h3>Notifications &#128276;</h3>';
             html += '<button onclick="alert(\'Notifications marked as read\')" class="btn-primary" style="width:auto; padding:6px 12px; font-size:12px;">Mark All Read</button>';
             html += '</div>';
             html += '<div class="card" style="margin:8px 0;">';
-            html += '<strong>⚡ 12 new jobs added since your last visit.</strong>';
+            html += '<strong>&#9889; 12 new jobs added since your last visit.</strong>';
             html += '<p style="margin:4px 0; font-size:13px; color:var(--text-secondary);">Tap to browse high-match backend and mobile openings.</p>';
             html += '<span style="font-size:11px; color:var(--text-muted);">Just now</span>';
             html += '</div>';
@@ -399,12 +385,12 @@
 
         html += '</div>'; // End .screen-content-scroll
 
-        // 4. FIXED BOTTOM NAVIGATION BAR
+        // FIXED BOTTOM NAVIGATION BAR
         html += '<div class="app-bottom-nav">';
-        html += '<button onclick="window.navigateTo(\'#home\')" class="app-bottom-nav-item ' + (hash==="#home"||hash===""||hash==="#"?"active":"") + '"><span class="icon">🏠</span><span>Home</span></button>';
-        html += '<button onclick="window.navigateTo(\'#jobs\')" class="app-bottom-nav-item ' + (hash==="#jobs"?"active":"") + '"><span class="icon">💼</span><span>Jobs</span></button>';
-        html += '<button onclick="window.navigateTo(\'#notifications\')" class="app-bottom-nav-item ' + (hash==="#notifications"?"active":"") + '"><span class="icon">🔔</span><span>Notifications</span></button>';
-        html += '<button onclick="window.navigateTo(\'#profile\')" class="app-bottom-nav-item ' + (hash==="#profile"?"active":"") + '"><span class="icon">👤</span><span>Profile</span></button>';
+        html += '<button onclick="window.navigateTo(\'#home\')" class="app-bottom-nav-item ' + (hash==="#home"||hash===""||hash==="#"?"active":"") + '"><span class="icon">&#127968;</span><span>Home</span></button>';
+        html += '<button onclick="window.navigateTo(\'#jobs\')" class="app-bottom-nav-item ' + (hash==="#jobs"?"active":"") + '"><span class="icon">&#128188;</span><span>Jobs</span></button>';
+        html += '<button onclick="window.navigateTo(\'#notifications\')" class="app-bottom-nav-item ' + (hash==="#notifications"?"active":"") + '"><span class="icon">&#128276;</span><span>Notifications</span></button>';
+        html += '<button onclick="window.navigateTo(\'#profile\')" class="app-bottom-nav-item ' + (hash==="#profile"?"active":"") + '"><span class="icon">&#128100;</span><span>Profile</span></button>';
         html += '</div>';
 
         mountPoint.innerHTML = html;
@@ -419,7 +405,7 @@
         if (match.isGuest) {
             card += '<div class="match-badge match-guest">Sign in to see your personalized match <button onclick="window.handleSignInModal()" style="width:auto; padding:2px 8px; font-size:10px; margin-left:6px;" class="btn-primary">Sign In</button></div>';
         } else {
-            card += '<div class="match-badge match-high">⚡ ' + match.overall + '% Match</div>';
+            card += '<div class="match-badge match-high">&#9889; ' + match.overall + '% Match</div>';
         }
 
         card += '<div style="margin-top:10px; display:flex; gap:8px;">';
@@ -483,7 +469,7 @@
         });
 
         html += '<button onclick="window.saveProfileUI()" class="btn-primary" style="margin-top:10px;">Save Profile Changes</button>';
-        html += '<button onclick="window.navigateTo(\'#settings\')" class="btn" style="margin-top:10px; background:var(--card-border); color:var(--text-primary);">Settings ⚙️</button>';
+        html += '<button onclick="window.navigateTo(\'#settings\')" class="btn" style="margin-top:10px; background:var(--card-border); color:var(--text-primary);">Settings &#9881;</button>';
         html += '<button onclick="window.handleLogout()" style="margin-top:10px; background:#EF4444; color:#FFF;" class="btn">Logout</button>';
 
         if (profile.role === "admin") {
@@ -497,9 +483,8 @@
         var currentTheme = localStorage.getItem("getjoblink_theme") || "system";
         var currentScale = localStorage.getItem("getjoblink_font_scale") || "1";
 
-        var html = '<h3>Settings ⚙️</h3>';
+        var html = '<h3>Settings &#9881;</h3>';
 
-        // Appearance
         html += '<div class="settings-group">';
         html += '<div class="settings-group-title">Appearance</div>';
 
@@ -522,7 +507,6 @@
         html += '</label>';
         html += '</div>';
 
-        // Text Size
         html += '<div class="card" style="margin:0 0 12px 0; padding:12px;">';
         html += '<strong>Text Size</strong>';
 
@@ -548,7 +532,6 @@
         html += '</div>';
         html += '</div>';
 
-        // About & Version
         html += '<div class="settings-group">';
         html += '<div class="settings-group-title">About</div>';
         html += '<div class="card" style="margin:0;">';
@@ -566,14 +549,12 @@
         return html;
     }
 
-    // --- NAVIGATION HELPER ---
     window.navigateTo = function(targetHash) {
         window.toggleSidebar(false);
         window.location.hash = targetHash;
         renderAppUI();
     };
 
-    // --- EVENT HANDLERS ---
     window.handleSignInModal = function() {
         authenticateWithGoogleAndQueryBackendRole(function(role) {
             alert("Signed in successfully with Google as " + role.toUpperCase());

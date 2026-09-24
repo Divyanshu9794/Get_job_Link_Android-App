@@ -65,6 +65,7 @@
             app:tint="#FFFFFF"
             app:elevation="6dp"
             app:fabSize="normal"
+            android:visibility="gone"
             android:contentDescription="Job Alert Notifications" />
 
         <com.google.android.material.bottomnavigation.BottomNavigationView
