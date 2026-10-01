@@ -66,6 +66,10 @@ public class GoNativeApplication extends Application {
     public void onCreate() {
         super.onCreate();
 
+        SharedPreferences settingsPrefs = getSharedPreferences("get_job_link_settings", MODE_PRIVATE);
+        int savedThemeMode = settingsPrefs.getInt("theme_mode", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM);
+        AppCompatDelegate.setDefaultNightMode(savedThemeMode);
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             // App theme setup for API 31 and above
             setupAppTheme();

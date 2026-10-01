@@ -20,12 +20,13 @@ import org.json.JSONObject
 
 object NotificationHelper {
 
-    const val CHANNEL_JOB_ALERTS = "job_alerts_channel"
+    const val CHANNEL_JOB_ALERTS = "new_job_alerts"
     const val CHANNEL_GENERAL = "general_channel"
     const val REQUEST_CODE_PERMISSION = 1001
 
     private const val PREFS_NAME = "notification_history_prefs"
     private const val KEY_NOTIFICATIONS = "notifications_json"
+    private const val KEY_UNREAD_COUNT = "unread_count"
 
     @JvmStatic
     fun createNotificationChannels(context: Context) {
@@ -34,10 +35,10 @@ object NotificationHelper {
 
             val jobAlertsChannel = NotificationChannel(
                 CHANNEL_JOB_ALERTS,
-                "Job Alerts & Matches",
+                "New Job Alerts",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Notifications for new tech job listings and matches"
+                description = "Notifications for new tech job listings and opportunities"
                 enableVibration(true)
                 setShowBadge(true)
             }
@@ -93,15 +94,28 @@ object NotificationHelper {
         title: String,
         message: String,
         targetUrl: String? = null,
+        jobId: String? = null,
         channelId: String = CHANNEL_JOB_ALERTS,
         notificationId: Int = (System.currentTimeMillis() % 10000).toInt()
     ) {
         createNotificationChannels(context)
 
-        val intent = Intent(context, LaunchActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            if (!targetUrl.isNullOrEmpty()) {
-                putExtra(MainActivity.INTENT_TARGET_URL, targetUrl)
+        val intent = if (!jobId.isNullOrEmpty()) {
+            Intent(context, JobDetailsActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                putExtra("job_id", jobId)
+                putExtra("job_title", title)
+                putExtra("job_description", message)
+                if (!targetUrl.isNullOrEmpty()) {
+                    putExtra("job_url", targetUrl)
+                }
+            }
+        } else {
+            Intent(context, LaunchActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                if (!targetUrl.isNullOrEmpty()) {
+                    putExtra(MainActivity.INTENT_TARGET_URL, targetUrl)
+                }
             }
         }
 
@@ -139,7 +153,7 @@ object NotificationHelper {
         }
 
         // Save to notification history
-        saveNotificationToHistory(context, title, message, targetUrl, System.currentTimeMillis())
+        saveNotificationToHistory(context, title, message, targetUrl, jobId, System.currentTimeMillis())
     }
 
     private fun saveNotificationToHistory(
@@ -147,6 +161,7 @@ object NotificationHelper {
         title: String,
         message: String,
         targetUrl: String?,
+        jobId: String?,
         timestamp: Long
     ) {
         try {
@@ -158,6 +173,7 @@ object NotificationHelper {
                 put("title", title)
                 put("message", message)
                 put("targetUrl", targetUrl ?: "")
+                put("jobId", jobId ?: "")
                 put("timestamp", timestamp)
             }
 
@@ -168,10 +184,26 @@ object NotificationHelper {
                 newArray.put(array.get(i))
             }
 
-            prefs.edit().putString(KEY_NOTIFICATIONS, newArray.toString()).apply()
+            val currentUnread = prefs.getInt(KEY_UNREAD_COUNT, 0)
+            prefs.edit()
+                .putString(KEY_NOTIFICATIONS, newArray.toString())
+                .putInt(KEY_UNREAD_COUNT, currentUnread + 1)
+                .apply()
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+
+    @JvmStatic
+    fun getUnreadCount(context: Context): Int {
+        val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getInt(KEY_UNREAD_COUNT, 0)
+    }
+
+    @JvmStatic
+    fun markAllAsRead(context: Context) {
+        val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putInt(KEY_UNREAD_COUNT, 0).apply()
     }
 
     @JvmStatic
@@ -189,6 +221,7 @@ object NotificationHelper {
                         title = obj.optString("title", ""),
                         message = obj.optString("message", ""),
                         targetUrl = obj.optString("targetUrl", ""),
+                        jobId = obj.optString("jobId", ""),
                         timestamp = obj.optLong("timestamp", 0L)
                     )
                 )
@@ -210,5 +243,6 @@ data class NotificationItem(
     val title: String,
     val message: String,
     val targetUrl: String,
+    val jobId: String,
     val timestamp: Long
 )

@@ -48,7 +48,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="My Profile &amp; Details"
+                        android:text="Edit Professional Profile"
                         android:textSize="20sp"
                         android:textStyle="bold"
                         android:textColor="@color/titleTextColor" />
@@ -95,6 +95,22 @@
                 android:textColor="@color/titleTextColor" />
         </com.google.android.material.textfield.TextInputLayout>
 
+        <!-- Professional Headline -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:hint="Professional Headline (e.g. Software Engineer | React)"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/edit_headline"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textAutoCorrect"
+                android:textColor="@color/titleTextColor" />
+        </com.google.android.material.textfield.TextInputLayout>
+
         <!-- Phone Number -->
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
@@ -132,7 +148,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
-            android:hint="Key Skills (e.g. Kotlin, Java, Firebase)"
+            android:hint="Key Skills (e.g. React, Node.js, Kotlin)"
             style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
 
             <com.google.android.material.textfield.TextInputEditText
@@ -148,7 +164,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
-            android:hint="Preferred Location / Remote"
+            android:hint="Preferred Location (e.g. Prayagraj, UP)"
             style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
 
             <com.google.android.material.textfield.TextInputEditText
@@ -159,20 +175,20 @@
                 android:textColor="@color/titleTextColor" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Bio / Resume Link -->
+        <!-- About / Professional Summary -->
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="20dp"
-            android:hint="Bio or Portfolio / Resume Link"
+            android:hint="About / Professional Summary"
             style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
 
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/edit_bio"
+                android:id="@+id/edit_about"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="textMultiLine"
-                android:lines="2"
+                android:lines="3"
                 android:textColor="@color/titleTextColor" />
         </com.google.android.material.textfield.TextInputLayout>
 

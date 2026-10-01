@@ -1,0 +1,73 @@
+{
+  "project_info": {
+    "project_number": "123456789012",
+    "firebase_url": "https://get-job-link-default-rtdb.firebaseio.com",
+    "project_id": "get-job-link",
+    "storage_bucket": "get-job-link.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:123456789012:android:abcdef1234567890",
+        "android_client_info": {
+          "package_name": "co.median.android.qdqlnma"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDummyKeyForGetJobLinkBuild123456"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 1
+        },
+        "cloud_messaging": {
+          "status": 2
+        },
+        "app_measurement": {
+          "status": 1
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:123456789012:android:abcdef1234567891",
+        "android_client_info": {
+          "package_name": "co.median.android.qdqlnma.debug"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDummyKeyForGetJobLinkBuild123456"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 1
+        },
+        "cloud_messaging": {
+          "status": 2
+        },
+        "app_measurement": {
+          "status": 1
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

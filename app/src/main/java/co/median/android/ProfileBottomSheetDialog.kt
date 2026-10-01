@@ -16,11 +16,12 @@ class ProfileBottomSheetDialog(
 
     private lateinit var editName: TextInputEditText
     private lateinit var editEmail: TextInputEditText
+    private lateinit var editHeadline: TextInputEditText
     private lateinit var editPhone: TextInputEditText
     private lateinit var editJobRole: TextInputEditText
     private lateinit var editSkills: TextInputEditText
     private lateinit var editLocation: TextInputEditText
-    private lateinit var editBio: TextInputEditText
+    private lateinit var editAbout: TextInputEditText
     private lateinit var progressSaving: LinearProgressIndicator
     private lateinit var btnSave: MaterialButton
 
@@ -37,11 +38,12 @@ class ProfileBottomSheetDialog(
 
         editName = view.findViewById(R.id.edit_name)
         editEmail = view.findViewById(R.id.edit_email)
+        editHeadline = view.findViewById(R.id.edit_headline)
         editPhone = view.findViewById(R.id.edit_phone)
         editJobRole = view.findViewById(R.id.edit_job_role)
         editSkills = view.findViewById(R.id.edit_skills)
         editLocation = view.findViewById(R.id.edit_location)
-        editBio = view.findViewById(R.id.edit_bio)
+        editAbout = view.findViewById(R.id.edit_about)
         progressSaving = view.findViewById(R.id.progress_saving)
         btnSave = view.findViewById(R.id.btn_save_profile)
 
@@ -49,11 +51,12 @@ class ProfileBottomSheetDialog(
         val currentProfile = FirebaseProfileRepository.loadLocalProfile(requireContext())
         editName.setText(currentProfile.name)
         editEmail.setText(currentProfile.email)
+        editHeadline.setText(currentProfile.headline)
         editPhone.setText(currentProfile.phone)
         editJobRole.setText(currentProfile.jobRole)
         editSkills.setText(currentProfile.skills)
         editLocation.setText(currentProfile.location)
-        editBio.setText(currentProfile.bio)
+        editAbout.setText(currentProfile.about.ifBlank { currentProfile.bio })
 
         btnSave.setOnClickListener {
             val name = editName.text?.toString()?.trim() ?: ""
@@ -69,15 +72,16 @@ class ProfileBottomSheetDialog(
                 return@setOnClickListener
             }
 
-            val updatedProfile = UserProfile(
-                id = currentProfile.id,
+            val updatedProfile = currentProfile.copy(
                 name = name,
                 email = email,
+                headline = editHeadline.text?.toString()?.trim() ?: "",
                 phone = editPhone.text?.toString()?.trim() ?: "",
                 jobRole = editJobRole.text?.toString()?.trim() ?: "",
                 skills = editSkills.text?.toString()?.trim() ?: "",
                 location = editLocation.text?.toString()?.trim() ?: "",
-                bio = editBio.text?.toString()?.trim() ?: ""
+                about = editAbout.text?.toString()?.trim() ?: "",
+                bio = editAbout.text?.toString()?.trim() ?: ""
             )
 
             progressSaving.visibility = View.VISIBLE

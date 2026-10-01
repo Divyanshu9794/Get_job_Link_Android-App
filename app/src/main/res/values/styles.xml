@@ -20,6 +20,8 @@
     <style name="Widget.App.BottomNavigationView" parent="Widget.Material3.BottomNavigationView">
         <item name="itemIconTint">@color/bottom_bar_text_color</item>
         <item name="itemTextColor">@color/bottom_bar_text_color</item>
+        <item name="android:background">@color/tabBarBackground</item>
+        <item name="elevation">8dp</item>
     </style>
 
     <!--

@@ -52,6 +52,12 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
+import androidx.core.view.GravityCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import androidx.browser.customtabs.CustomTabColorSchemeParams;
 import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.core.app.ActivityCompat;
@@ -62,6 +68,9 @@ import androidx.webkit.WebSettingsCompat;
 import androidx.webkit.WebViewFeature;
 
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import com.google.android.material.navigation.NavigationView;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -69,6 +78,7 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.net.CookieHandler;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -257,6 +267,19 @@ public class MainActivity extends AppCompatActivity implements Observer,
 
         super.onCreate(savedInstanceState);
 
+        String jobId = getIntent().getStringExtra("job_id");
+        if (jobId == null || jobId.isEmpty()) {
+            jobId = getIntent().getStringExtra("jobId");
+        }
+        if (jobId != null && !jobId.isEmpty()) {
+            Intent detailsIntent = new Intent(this, JobDetailsActivity.class);
+            detailsIntent.putExtra("job_id", jobId);
+            if (getIntent().getExtras() != null) {
+                detailsIntent.putExtras(getIntent().getExtras());
+            }
+            startActivity(detailsIntent);
+        }
+
         this.activityId = UUID.randomUUID().toString();
         int urlLevel = getIntent().getIntExtra("urlLevel", -1);
         int parentUrlLevel = getIntent().getIntExtra("parentUrlLevel", -1);
@@ -336,6 +359,17 @@ public class MainActivity extends AppCompatActivity implements Observer,
         swipeRefreshLayout.setEnabled(appConfig.pullToRefresh);
         swipeRefreshLayout.setOnRefreshListener(this);
         swipeRefreshLayout.setCanChildScrollUpCallback(() -> mWebview.getWebViewScrollY() > 10);
+
+        getSupportFragmentManager().registerFragmentLifecycleCallbacks(new FragmentManager.FragmentLifecycleCallbacks() {
+            @Override
+            public void onFragmentResumed(@NonNull FragmentManager fm, @NonNull Fragment f) {
+                super.onFragmentResumed(fm, f);
+                if (swipeRefreshLayout != null) {
+                    swipeRefreshLayout.setRefreshing(false);
+                    swipeRefreshLayout.setEnabled(false);
+                }
+            }
+        }, true);
 
         if (appConfig.isAndroidGestureEnabled()) {
             appConfig.swipeGestures = false;
@@ -424,8 +458,147 @@ public class MainActivity extends AppCompatActivity implements Observer,
         this.previousWebviewStates = new Stack<>();
 
         // tab navigation
-        this.tabManager = new TabManager(this, findViewById(R.id.bottom_navigation));
-        tabManager.showTabs(false);
+        this.tabManager = null;
+        View webviewContainer = findViewById(R.id.webviewContainer);
+        if (webviewContainer != null) {
+            webviewContainer.setVisibility(View.GONE);
+        }
+
+        BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
+        NavigationView navMenu = findViewById(R.id.nav_menu);
+
+        if (bottomNav != null) {
+            bottomNav.getMenu().clear();
+            bottomNav.inflateMenu(R.menu.bottom_nav_menu);
+            bottomNav.setVisibility(View.VISIBLE);
+            bottomNav.bringToFront();
+            bottomNav.setOnItemSelectedListener(item -> {
+                Fragment selectedFragment = null;
+                int id = item.getItemId();
+                if (id == R.id.nav_home) {
+                    selectedFragment = new HomeFragment();
+                    if (actionManager != null) actionManager.setTitle("GetJobLink");
+                    if (navMenu != null) navMenu.setCheckedItem(R.id.drawer_home);
+                } else if (id == R.id.nav_jobs) {
+                    selectedFragment = new JobsFragment();
+                    if (actionManager != null) actionManager.setTitle("Jobs");
+                    if (navMenu != null) navMenu.setCheckedItem(R.id.drawer_jobs);
+                } else if (id == R.id.nav_alerts) {
+                    selectedFragment = new NotificationsFragment();
+                    if (actionManager != null) actionManager.setTitle("Job Alerts");
+                    NotificationHelper.markAllAsRead(this);
+                    if (sideNavManager != null) sideNavManager.updateNotificationBadge();
+                    if (navMenu != null) navMenu.setCheckedItem(R.id.drawer_notifications);
+                } else if (id == R.id.nav_profile) {
+                    selectedFragment = new ProfileFragment();
+                    if (actionManager != null) actionManager.setTitle("Profile");
+                    if (navMenu != null) navMenu.setCheckedItem(R.id.drawer_profile);
+                }
+                if (selectedFragment != null) {
+                    getSupportFragmentManager().beginTransaction()
+                        .replace(R.id.native_fragment_container, selectedFragment)
+                        .commit();
+                    return true;
+                }
+                return false;
+            });
+
+            if (savedInstanceState == null) {
+                if (actionManager != null) actionManager.setTitle("GetJobLink");
+                getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.native_fragment_container, new HomeFragment())
+                    .commit();
+            }
+        }
+
+        // Navigation Drawer Setup
+        DrawerLayout drawerLayout = findViewById(R.id.drawer_layout);
+        if (navMenu != null) {
+            navMenu.getMenu().clear();
+            navMenu.inflateMenu(R.menu.drawer_menu);
+
+            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+            boolean isAdmin = currentUser != null && FirebaseProfileRepository.isAdminEmail(currentUser.getEmail());
+            int adminMenuId = 9999;
+            if (isAdmin) {
+                navMenu.getMenu().add(R.id.group_main, adminMenuId, 4, "Admin").setIcon(R.drawable.ic_work);
+            }
+
+            navMenu.setCheckedItem(R.id.drawer_home);
+            navMenu.setNavigationItemSelectedListener(item -> {
+                Fragment selectedFragment = null;
+                int id = item.getItemId();
+                if (id == adminMenuId) {
+                    selectedFragment = new AdminDashboardFragment();
+                    if (actionManager != null) actionManager.setTitle("Admin Dashboard");
+                } else if (id == R.id.drawer_home) {
+                    selectedFragment = new HomeFragment();
+                    if (actionManager != null) actionManager.setTitle("GetJobLink");
+                    if (bottomNav != null) bottomNav.setSelectedItemId(R.id.nav_home);
+                } else if (id == R.id.drawer_jobs) {
+                    selectedFragment = new JobsFragment();
+                    if (actionManager != null) actionManager.setTitle("Jobs");
+                    if (bottomNav != null) bottomNav.setSelectedItemId(R.id.nav_jobs);
+                } else if (id == R.id.drawer_notifications) {
+                    selectedFragment = new NotificationsFragment();
+                    if (actionManager != null) actionManager.setTitle("Job Alerts");
+                    NotificationHelper.markAllAsRead(this);
+                    if (sideNavManager != null) sideNavManager.updateNotificationBadge();
+                    if (bottomNav != null) bottomNav.setSelectedItemId(R.id.nav_alerts);
+                } else if (id == R.id.drawer_saved_jobs) {
+                    selectedFragment = new SavedJobsFragment();
+                    if (actionManager != null) actionManager.setTitle("Saved Jobs");
+                } else if (id == R.id.drawer_profile) {
+                    selectedFragment = new ProfileFragment();
+                    if (actionManager != null) actionManager.setTitle("Profile");
+                    if (bottomNav != null) bottomNav.setSelectedItemId(R.id.nav_profile);
+                } else if (id == R.id.drawer_settings) {
+                    selectedFragment = new SettingsFragment();
+                    if (actionManager != null) actionManager.setTitle("Settings");
+                } else if (id == R.id.drawer_logout) {
+                    new MaterialAlertDialogBuilder(this)
+                        .setTitle("Log out?")
+                        .setMessage("Are you sure you want to log out of GetJobLink?")
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Log Out", (dialog, which) -> {
+                            FirebaseAuth.getInstance().signOut();
+                            Intent intent = new Intent(this, AuthActivity.class);
+                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                            startActivity(intent);
+                        })
+                        .show();
+                    if (drawerLayout != null) {
+                        drawerLayout.closeDrawer(GravityCompat.START);
+                    }
+                    return true;
+                }
+
+                if (selectedFragment != null) {
+                    getSupportFragmentManager().beginTransaction()
+                        .replace(R.id.native_fragment_container, selectedFragment)
+                        .commit();
+                    if (drawerLayout != null) {
+                        drawerLayout.closeDrawer(GravityCompat.START);
+                    }
+                    return true;
+                }
+                return false;
+            });
+        }
+
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        if (toolbar != null) {
+            toolbar.setNavigationIcon(R.drawable.ic_menu);
+            toolbar.setNavigationOnClickListener(v -> {
+                if (drawerLayout != null) {
+                    if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
+                        drawerLayout.closeDrawer(GravityCompat.START);
+                    } else {
+                        drawerLayout.openDrawer(GravityCompat.START);
+                    }
+                }
+            });
+        }
 
         // actions in action bar
         this.actionManager = new ActionManager(this);
@@ -434,9 +607,10 @@ public class MainActivity extends AppCompatActivity implements Observer,
         this.sideNavManager = new SideNavManager(this);
         this.sideNavManager.setupNavigationMenu(isRoot);
 
-        // Hide action bar if showActionBar is FALSE and showNavigationMenu is FALSE
-        if (!appConfig.showActionBar && !appConfig.showNavigationMenu) {
-            Objects.requireNonNull(getSupportActionBar()).hide();
+        if (getSupportActionBar() != null && isRoot) {
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+            getSupportActionBar().setHomeAsUpIndicator(R.drawable.ic_menu);
+            getSupportActionBar().show();
         }
 
         // WebView setup
@@ -863,11 +1037,11 @@ public class MainActivity extends AppCompatActivity implements Observer,
             shareUrl = currentUrl;
         } else {
             try {
-                java.net.URI optionalUri = new java.net.URI(optionalUrl);
+                URI optionalUri = new URI(optionalUrl);
                 if (optionalUri.isAbsolute()) {
                     shareUrl = optionalUrl;
                 } else {
-                    java.net.URI currentUri = new java.net.URI(currentUrl);
+                    URI currentUri = new URI(currentUrl);
                     shareUrl = currentUri.resolve(optionalUri).toString();
                 }
             } catch (URISyntaxException e) {
@@ -1288,6 +1462,21 @@ public class MainActivity extends AppCompatActivity implements Observer,
                 return true;
             }
 
+            DrawerLayout drawerLayout = findViewById(R.id.drawer_layout);
+            if (drawerLayout != null && isRoot) {
+                if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
+                    drawerLayout.closeDrawer(GravityCompat.START);
+                } else {
+                    drawerLayout.openDrawer(GravityCompat.START);
+                }
+                return true;
+            }
+
+            if (canGoBack()) {
+                goBack();
+                return true;
+            }
+
             finish();
             return true;
         }
@@ -1468,6 +1657,23 @@ public class MainActivity extends AppCompatActivity implements Observer,
 
     public void closeDrawers() {
         sideNavManager.closeDrawer();
+    }
+
+    public void openProfileFromDrawer() {
+        getSupportFragmentManager().beginTransaction()
+            .replace(R.id.native_fragment_container, new ProfileFragment())
+            .commit();
+        BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
+        if (bottomNav != null) {
+            bottomNav.setSelectedItemId(R.id.nav_profile);
+        }
+        NavigationView navMenu = findViewById(R.id.nav_menu);
+        if (navMenu != null) {
+            navMenu.setCheckedItem(R.id.drawer_profile);
+        }
+        if (this.sideNavManager != null) {
+            this.sideNavManager.closeDrawer();
+        }
     }
 
     public boolean isNotRoot() {

@@ -21,6 +21,7 @@ import androidx.appcompat.content.res.AppCompatResources
 import androidx.appcompat.widget.SearchView
 import androidx.appcompat.widget.Toolbar
 import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.drawerlayout.widget.DrawerLayout
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.BlendModeColorFilterCompat
 import androidx.core.graphics.BlendModeCompat
@@ -82,8 +83,15 @@ class ActionManager(private val main: MainActivity) {
 
         actionBar?.apply {
             if (isRoot) {
-                if (!appConfig.showNavigationMenu) {
-                    setDisplayHomeAsUpEnabled(false)
+                setDisplayHomeAsUpEnabled(true)
+                if (!appConfig.sideBarMenuIcon.isNullOrBlank()) {
+                    val menuItemSize: Int =
+                        main.resources.getDimensionPixelSize(R.dimen.action_menu_icon_size)
+                    val colorForeground = ContextCompat.getColor(main, R.color.titleTextColor)
+                    val drawableIcon = Icon(main, appConfig.sideBarMenuIcon, menuItemSize, colorForeground).getDrawable()
+                    setHomeAsUpIndicator(drawableIcon)
+                } else {
+                    setHomeAsUpIndicator(R.drawable.ic_menu)
                 }
             } else {
                 setDisplayHomeAsUpEnabled(true)
@@ -650,8 +658,11 @@ class ActionManager(private val main: MainActivity) {
         }
 
         if (!appConfig.showActionBar && !appConfig.showNavigationMenu && !urlHasNavTitle && !urlHasActionMenu) {
-            hideActionBar()
-            return
+            val drawerLayout = main.findViewById<DrawerLayout>(R.id.drawer_layout)
+            if (drawerLayout == null || !isRoot) {
+                hideActionBar()
+                return
+            }
         }
 
         // default title

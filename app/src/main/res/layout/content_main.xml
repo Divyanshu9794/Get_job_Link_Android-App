@@ -11,7 +11,7 @@
         android:id="@+id/swipe_refresh"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_above="@id/pluginView">
+        android:layout_above="@id/bottom_nav_spacer">
 
         <co.median.android.widget.SwipeHistoryNavigationLayout
             android:id="@+id/swipe_history_nav"
@@ -26,6 +26,12 @@
                     android:id="@+id/webviewContainer"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent" />
+
+                <androidx.fragment.app.FragmentContainerView
+                    android:id="@+id/native_fragment_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:visibility="visible" />
 
                 <View
                     android:id="@+id/webviewOverlay"

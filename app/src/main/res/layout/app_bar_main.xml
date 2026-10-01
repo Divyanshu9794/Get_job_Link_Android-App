@@ -26,7 +26,9 @@
                 android:layout_height="wrap_content"
                 android:minHeight="?attr/actionBarSize"
                 android:background="@color/colorPrimary"
+                app:title="GetJobLink"
                 app:titleCentered="true"
+                app:titleTextColor="#FFFFFF"
                 app:elevation="4dp">
 
                 <ImageView
@@ -74,7 +76,8 @@
             android:layout_height="wrap_content"
             android:layout_gravity="bottom"
             android:elevation="8dp"
-            android:visibility="gone"
+            android:visibility="visible"
+            app:menu="@menu/bottom_nav_menu"
             android:background="@color/tabBarBackground"
             style="@style/Widget.App.BottomNavigationView"
             app:itemActiveIndicatorStyle="@style/Widget.App.BottomNavigationView.ActiveIndicator"

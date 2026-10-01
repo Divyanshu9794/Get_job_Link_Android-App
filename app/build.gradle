@@ -154,7 +154,7 @@ android {
     }
 }
 
-//[enabled by builder] apply plugin: 'com.google.gms.google-services'
+apply plugin: 'com.google.gms.google-services'
 //[enabled by builder] apply plugin: 'com.google.firebase.crashlytics'
 
 configurations {
@@ -164,11 +164,25 @@ configurations {
 dependencies {
     /**** dependencies used by all apps ****/
     implementation "androidx.core:core-ktx:1.18.0"
+    implementation 'androidx.credentials:credentials-play-services-auth:1.6.0'
+    implementation 'androidx.credentials:credentials:1.6.0'
     implementation 'androidx.webkit:webkit:1.16.0'
     implementation 'androidx.core:core-splashscreen:1.2.0'
     implementation "co.median.android:icons:$iconsVersion"
     implementation "co.median.android:core:$coreVersion"
     /**** end all apps ****/
+
+    /**** Firebase & Auth dependencies ****/
+    implementation platform('com.google.firebase:firebase-bom:33.9.0')
+    implementation 'com.google.android.libraries.identity.googleid:googleid:1.2.0'
+    implementation 'com.google.firebase:firebase-auth:24.2.0'
+    implementation 'com.google.firebase:firebase-firestore-ktx'
+    implementation 'com.google.firebase:firebase-auth-ktx'
+    implementation 'com.google.firebase:firebase-messaging-ktx'
+    implementation 'com.google.android.gms:play-services-auth:21.3.0'
+    implementation 'com.google.firebase:firebase-firestore:26.6.0'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1'
+    /**** end firebase ****/
 
     /**** add-on module dependencies ****/
     /**** end modules ****/

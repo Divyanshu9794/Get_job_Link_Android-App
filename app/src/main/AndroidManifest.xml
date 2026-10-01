@@ -113,6 +113,34 @@
         </activity>
 
         <activity
+            android:name=".JobDetailsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Median" />
+
+        <activity
+            android:name=".AdminJobFormActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Median"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".InAppWebViewActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Median"
+            android:configChanges="orientation|screenSize|uiMode" />
+
+        <activity
+            android:name=".EditProfileActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Median"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".AuthActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Median" />
+
+        <activity
             android:name=".AppLinksActivity"
             android:exported="true"
             android:launchMode="singleTask">
@@ -158,6 +186,14 @@
             android:value="${facebook_client_token}" />
 
         <service android:name=".DownloadService"/>
+
+        <service
+            android:name=".GetJobLinkMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
 
         <receiver
             android:name="co.median.android.AppUpgradeReceiver"
