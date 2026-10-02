@@ -100,22 +100,16 @@ object NotificationHelper {
     ) {
         createNotificationChannels(context)
 
-        val intent = if (!jobId.isNullOrEmpty()) {
-            Intent(context, JobDetailsActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        val intent = Intent(context, LaunchActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            if (!jobId.isNullOrEmpty()) {
                 putExtra("job_id", jobId)
                 putExtra("job_title", title)
                 putExtra("job_description", message)
-                if (!targetUrl.isNullOrEmpty()) {
-                    putExtra("job_url", targetUrl)
-                }
             }
-        } else {
-            Intent(context, LaunchActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                if (!targetUrl.isNullOrEmpty()) {
-                    putExtra(MainActivity.INTENT_TARGET_URL, targetUrl)
-                }
+            if (!targetUrl.isNullOrEmpty()) {
+                putExtra(MainActivity.INTENT_TARGET_URL, targetUrl)
+                putExtra("job_url", targetUrl)
             }
         }
 

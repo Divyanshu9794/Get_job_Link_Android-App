@@ -26,8 +26,9 @@
                 android:layout_marginBottom="16dp"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="1dp"
+                app:cardBackgroundColor="@color/cardBackground"
                 app:strokeWidth="1dp"
-                app:strokeColor="#1F000000">
+                app:strokeColor="@color/cardStrokeColor">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -63,7 +64,7 @@
                         android:layout_height="wrap_content"
                         android:text="Software Engineer | React | Node.js"
                         android:textSize="14sp"
-                        android:textColor="@color/colorPrimary"
+                        android:textColor="@color/colorAccent"
                         android:textAlignment="center"
                         android:layout_marginTop="4dp"/>
 
@@ -78,7 +79,7 @@
                             android:layout_width="16dp"
                             android:layout_height="16dp"
                             android:src="@drawable/ic_location"
-                            app:tint="@color/colorPrimary"
+                            app:tint="@color/colorAccent"
                             android:contentDescription="Location Icon"/>
 
                         <TextView
@@ -112,8 +113,9 @@
                 android:layout_marginBottom="16dp"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="1dp"
+                app:cardBackgroundColor="@color/cardBackground"
                 app:strokeWidth="1dp"
-                app:strokeColor="#1F000000">
+                app:strokeColor="@color/cardStrokeColor">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -143,7 +145,7 @@
                             android:text="82%"
                             android:textStyle="bold"
                             android:textSize="15sp"
-                            android:textColor="@color/colorPrimary"/>
+                            android:textColor="@color/colorAccent"/>
                     </LinearLayout>
 
                     <ProgressBar
@@ -173,8 +175,9 @@
                 android:layout_marginBottom="16dp"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="1dp"
+                app:cardBackgroundColor="@color/cardBackground"
                 app:strokeWidth="1dp"
-                app:strokeColor="#1F000000">
+                app:strokeColor="@color/cardStrokeColor">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -187,7 +190,7 @@
                         android:layout_width="28dp"
                         android:layout_height="28dp"
                         android:src="@drawable/ic_work_history"
-                        app:tint="@color/colorPrimary"
+                        app:tint="@color/colorAccent"
                         android:contentDescription="Work Icon"/>
 
                     <LinearLayout
@@ -233,8 +236,9 @@
                 android:layout_marginBottom="16dp"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="1dp"
+                app:cardBackgroundColor="@color/cardBackground"
                 app:strokeWidth="1dp"
-                app:strokeColor="#1F000000">
+                app:strokeColor="@color/cardStrokeColor">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -260,7 +264,7 @@
                             android:layout_height="wrap_content"
                             android:layout_alignParentEnd="true"
                             android:text="Edit"
-                            android:textColor="@color/colorPrimary"
+                            android:textColor="@color/colorAccent"
                             android:textStyle="bold"
                             android:textSize="13sp"
                             android:background="?android:attr/selectableItemBackground"
@@ -286,8 +290,9 @@
                 android:layout_marginBottom="16dp"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="1dp"
+                app:cardBackgroundColor="@color/cardBackground"
                 app:strokeWidth="1dp"
-                app:strokeColor="#1F000000">
+                app:strokeColor="@color/cardStrokeColor">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -314,7 +319,7 @@
                             android:layout_height="wrap_content"
                             android:layout_alignParentEnd="true"
                             android:text="+ Add"
-                            android:textColor="@color/colorPrimary"
+                            android:textColor="@color/colorAccent"
                             android:textStyle="bold"
                             android:textSize="13sp"
                             android:background="?android:attr/selectableItemBackground"
@@ -336,8 +341,9 @@
                 android:layout_marginBottom="16dp"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="1dp"
+                app:cardBackgroundColor="@color/cardBackground"
                 app:strokeWidth="1dp"
-                app:strokeColor="#1F000000">
+                app:strokeColor="@color/cardStrokeColor">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -364,7 +370,7 @@
                             android:layout_height="wrap_content"
                             android:layout_alignParentEnd="true"
                             android:text="+ Add"
-                            android:textColor="@color/colorPrimary"
+                            android:textColor="@color/colorAccent"
                             android:textStyle="bold"
                             android:textSize="13sp"
                             android:background="?android:attr/selectableItemBackground"
@@ -386,8 +392,9 @@
                 android:layout_marginBottom="16dp"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="1dp"
+                app:cardBackgroundColor="@color/cardBackground"
                 app:strokeWidth="1dp"
-                app:strokeColor="#1F000000">
+                app:strokeColor="@color/cardStrokeColor">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -414,7 +421,7 @@
                             android:layout_height="wrap_content"
                             android:layout_alignParentEnd="true"
                             android:text="+ Add"
-                            android:textColor="@color/colorPrimary"
+                            android:textColor="@color/colorAccent"
                             android:textStyle="bold"
                             android:textSize="13sp"
                             android:background="?android:attr/selectableItemBackground"
@@ -434,7 +441,7 @@
                         android:layout_height="wrap_content"
                         android:text="No skills added yet."
                         android:textSize="13sp"
-                        android:textColor="@android:color/darker_gray"
+                        android:textColor="?android:attr/textColorSecondary"
                         android:visibility="gone"/>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -446,8 +453,9 @@
                 android:layout_marginBottom="16dp"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="1dp"
+                app:cardBackgroundColor="@color/cardBackground"
                 app:strokeWidth="1dp"
-                app:strokeColor="#1F000000">
+                app:strokeColor="@color/cardStrokeColor">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -481,7 +489,7 @@
                                 android:layout_width="28dp"
                                 android:layout_height="28dp"
                                 android:src="@drawable/ic_description"
-                                app:tint="@color/colorPrimary"
+                                app:tint="@color/colorAccent"
                                 android:contentDescription="Resume Document Icon"/>
 
                             <LinearLayout
@@ -620,7 +628,7 @@
                             android:layout_width="32dp"
                             android:layout_height="32dp"
                             android:src="@drawable/ic_description"
-                            app:tint="@color/colorPrimary"
+                            app:tint="@color/colorAccent"
                             android:contentDescription="Document Icon"/>
 
                         <TextView
@@ -653,8 +661,9 @@
                 android:layout_marginBottom="16dp"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="1dp"
+                app:cardBackgroundColor="@color/cardBackground"
                 app:strokeWidth="1dp"
-                app:strokeColor="#1F000000">
+                app:strokeColor="@color/cardStrokeColor">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -681,7 +690,7 @@
                             android:layout_height="wrap_content"
                             android:layout_alignParentEnd="true"
                             android:text="+ Add"
-                            android:textColor="@color/colorPrimary"
+                            android:textColor="@color/colorAccent"
                             android:textStyle="bold"
                             android:textSize="13sp"
                             android:background="?android:attr/selectableItemBackground"
@@ -703,8 +712,9 @@
                 android:layout_marginBottom="16dp"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="1dp"
+                app:cardBackgroundColor="@color/cardBackground"
                 app:strokeWidth="1dp"
-                app:strokeColor="#1F000000">
+                app:strokeColor="@color/cardStrokeColor">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -731,7 +741,7 @@
                             android:layout_height="wrap_content"
                             android:layout_alignParentEnd="true"
                             android:text="+ Add"
-                            android:textColor="@color/colorPrimary"
+                            android:textColor="@color/colorAccent"
                             android:textStyle="bold"
                             android:textSize="13sp"
                             android:background="?android:attr/selectableItemBackground"

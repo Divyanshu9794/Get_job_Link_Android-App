@@ -2,17 +2,17 @@ package co.median.android
 
 import android.content.Context
 import android.content.SharedPreferences
-import android.os.Handler
-import android.os.Looper
-import org.json.JSONArray
-import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.io.OutputStreamWriter
-import java.net.HttpURLConnection
-import java.net.URL
+import android.util.Log
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.UUID
-import java.util.concurrent.Executors
 
 data class UserProfile(
     val id: String = "",
@@ -34,8 +34,13 @@ data class UserProfile(
     val portfolioUrl: String = "",
     val websiteUrl: String = "",
     val resumeFileName: String = "",
+    val resumeStoragePath: String = "",
+    val resumeDownloadUrl: String = "",
+    val resumeContentType: String = "",
+    val resumeFileSize: Long = 0L,
     val resumeData: String = "",
     val resumeUpdatedAt: String = "",
+    val resumeVersion: Int = 1,
     val certifications: String = "",
     val education: String = "",
     val experience: String = "",
@@ -55,7 +60,7 @@ data class UserProfile(
         if (skills.isNotBlank()) score += 15
         if (experience.isNotBlank() && experience != "[]" && experience != "null") score += 15
         if (education.isNotBlank() && education != "[]" && education != "null") score += 10
-        if (resumeFileName.isNotBlank()) score += 10
+        if (resumeFileName.isNotBlank() || resumeDownloadUrl.isNotBlank() || resumeStoragePath.isNotBlank()) score += 10
         if ((projects.isNotBlank() && projects != "[]") || (certifications.isNotBlank() && certifications != "[]")) score += 10
         if (preferences.isNotBlank() || careerPreferences.isNotBlank()) score += 5
         return if (score > 100) 100 else score
@@ -64,7 +69,11 @@ data class UserProfile(
 
 object FirebaseProfileRepository {
 
+    private const val TAG = "FirebaseProfileRepo"
     private const val PREFS_NAME = "user_profile_prefs"
+    private const val COLLECTION_USERS = "users"
+    private const val ADMIN_EMAIL = "sdivyanshu352@gmail.com"
+
     private const val KEY_USER_ID = "user_id"
     private const val KEY_NAME = "profile_name"
     private const val KEY_EMAIL = "profile_email"
@@ -84,8 +93,13 @@ object FirebaseProfileRepository {
     private const val KEY_PORTFOLIO = "profile_portfolio"
     private const val KEY_WEBSITE = "profile_website"
     private const val KEY_RESUME_NAME = "profile_resume_name"
+    private const val KEY_RESUME_STORAGE_PATH = "profile_resume_storage_path"
+    private const val KEY_RESUME_DOWNLOAD_URL = "profile_resume_download_url"
+    private const val KEY_RESUME_CONTENT_TYPE = "profile_resume_content_type"
+    private const val KEY_RESUME_FILE_SIZE = "profile_resume_file_size"
     private const val KEY_RESUME_DATA = "profile_resume_data"
     private const val KEY_RESUME_UPDATED = "profile_resume_updated"
+    private const val KEY_RESUME_VERSION = "profile_resume_version"
     private const val KEY_CERTIFICATIONS = "profile_certifications"
     private const val KEY_EDUCATION = "profile_education"
     private const val KEY_EXPERIENCE = "profile_experience"
@@ -96,11 +110,14 @@ object FirebaseProfileRepository {
     private const val KEY_PRIVACY = "profile_privacy"
     private const val KEY_LAST_OPENED = "profile_last_opened"
 
-    private const val FIREBASE_PROJECT_ID = "get-job-link"
-    private const val ADMIN_EMAIL = "sdivyanshu352@gmail.com"
-
-    private val executor = Executors.newSingleThreadExecutor()
-    private val mainHandler = Handler(Looper.getMainLooper())
+    @JvmStatic
+    fun getCurrentUid(): String? {
+        return try {
+            FirebaseAuth.getInstance().currentUser?.uid
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     @JvmStatic
     fun isAdminEmail(email: String?): Boolean {
@@ -110,7 +127,14 @@ object FirebaseProfileRepository {
 
     @JvmStatic
     fun getOrCreateUserId(context: Context): String {
-        val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val uid = getCurrentUid()
+        if (!uid.isNullOrBlank()) {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit().putString(KEY_USER_ID, uid).apply()
+            return uid
+        }
+
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         var userId = prefs.getString(KEY_USER_ID, null)
         if (userId.isNullOrEmpty()) {
             userId = "user_" + UUID.randomUUID().toString().take(12)
@@ -120,18 +144,40 @@ object FirebaseProfileRepository {
     }
 
     @JvmStatic
+    fun clearLocalProfile(context: Context) {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().clear().apply()
+    }
+
+    @JvmStatic
     fun loadLocalProfile(context: Context): UserProfile {
-        val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val userId = getOrCreateUserId(context)
-        val email = prefs.getString(KEY_EMAIL, "") ?: ""
+        val currentUser = try { FirebaseAuth.getInstance().currentUser } catch (_: Exception) { null }
+
+        var email = prefs.getString(KEY_EMAIL, "") ?: ""
+        if (email.isBlank() && currentUser?.email != null) {
+            email = currentUser.email ?: ""
+        }
+
+        var name = prefs.getString(KEY_NAME, "") ?: ""
+        if (name.isBlank() && currentUser?.displayName != null) {
+            name = currentUser.displayName ?: ""
+        }
+
+        var photoUrl = prefs.getString(KEY_PHOTO_URL, "") ?: ""
+        if (photoUrl.isBlank() && currentUser?.photoUrl != null) {
+            photoUrl = currentUser.photoUrl.toString()
+        }
+
         val role = if (isAdminEmail(email)) "admin" else (prefs.getString(KEY_ROLE, "user") ?: "user")
 
         return UserProfile(
             id = userId,
-            name = prefs.getString(KEY_NAME, "") ?: "",
+            name = name,
             email = email,
             phone = prefs.getString(KEY_PHONE, "") ?: "",
-            photoUrl = prefs.getString(KEY_PHOTO_URL, "") ?: "",
+            photoUrl = photoUrl,
             headline = prefs.getString(KEY_HEADLINE, "") ?: "",
             jobRole = prefs.getString(KEY_JOB_ROLE, "") ?: "",
             skills = prefs.getString(KEY_SKILLS, "") ?: "",
@@ -146,8 +192,13 @@ object FirebaseProfileRepository {
             portfolioUrl = prefs.getString(KEY_PORTFOLIO, "") ?: "",
             websiteUrl = prefs.getString(KEY_WEBSITE, "") ?: "",
             resumeFileName = prefs.getString(KEY_RESUME_NAME, "") ?: "",
+            resumeStoragePath = prefs.getString(KEY_RESUME_STORAGE_PATH, "") ?: "",
+            resumeDownloadUrl = prefs.getString(KEY_RESUME_DOWNLOAD_URL, "") ?: "",
+            resumeContentType = prefs.getString(KEY_RESUME_CONTENT_TYPE, "") ?: "",
+            resumeFileSize = prefs.getLong(KEY_RESUME_FILE_SIZE, 0L),
             resumeData = prefs.getString(KEY_RESUME_DATA, "") ?: "",
             resumeUpdatedAt = prefs.getString(KEY_RESUME_UPDATED, "") ?: "",
+            resumeVersion = prefs.getInt(KEY_RESUME_VERSION, 1),
             certifications = prefs.getString(KEY_CERTIFICATIONS, "") ?: "",
             education = prefs.getString(KEY_EDUCATION, "") ?: "",
             experience = prefs.getString(KEY_EXPERIENCE, "") ?: "",
@@ -162,7 +213,7 @@ object FirebaseProfileRepository {
 
     @JvmStatic
     fun saveProfileLocally(context: Context, profile: UserProfile) {
-        val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val resolvedRole = if (isAdminEmail(profile.email)) "admin" else profile.role
 
         prefs.edit()
@@ -184,8 +235,13 @@ object FirebaseProfileRepository {
             .putString(KEY_PORTFOLIO, profile.portfolioUrl)
             .putString(KEY_WEBSITE, profile.websiteUrl)
             .putString(KEY_RESUME_NAME, profile.resumeFileName)
+            .putString(KEY_RESUME_STORAGE_PATH, profile.resumeStoragePath)
+            .putString(KEY_RESUME_DOWNLOAD_URL, profile.resumeDownloadUrl)
+            .putString(KEY_RESUME_CONTENT_TYPE, profile.resumeContentType)
+            .putLong(KEY_RESUME_FILE_SIZE, profile.resumeFileSize)
             .putString(KEY_RESUME_DATA, profile.resumeData)
             .putString(KEY_RESUME_UPDATED, profile.resumeUpdatedAt)
+            .putInt(KEY_RESUME_VERSION, profile.resumeVersion)
             .putString(KEY_CERTIFICATIONS, profile.certifications)
             .putString(KEY_EDUCATION, profile.education)
             .putString(KEY_EXPERIENCE, profile.experience)
@@ -199,165 +255,348 @@ object FirebaseProfileRepository {
     }
 
     @JvmStatic
+    fun ensureUserProfileExists(context: Context, onComplete: ((UserProfile) -> Unit)? = null) {
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        if (currentUser == null) {
+            val local = loadLocalProfile(context)
+            onComplete?.invoke(local)
+            return
+        }
+
+        val uid = currentUser.uid
+        val docRef = FirebaseFirestore.getInstance().collection(COLLECTION_USERS).document(uid)
+
+        Log.d(TAG, "Diagnostic 1: Checking profile document users/$uid")
+
+        docRef.get().addOnSuccessListener { snapshot ->
+            if (!snapshot.exists()) {
+                Log.d(TAG, "Diagnostic 2: Document users/$uid does not exist. Creating new profile.")
+                val initialProfile = UserProfile(
+                    id = uid,
+                    name = currentUser.displayName ?: "Job Seeker",
+                    email = currentUser.email ?: "",
+                    photoUrl = currentUser.photoUrl?.toString() ?: "",
+                    role = if (isAdminEmail(currentUser.email)) "admin" else "user"
+                )
+                saveProfileLocally(context, initialProfile)
+
+                val data = hashMapOf(
+                    "uid" to uid,
+                    "name" to initialProfile.name,
+                    "email" to initialProfile.email,
+                    "photoUrl" to initialProfile.photoUrl,
+                    "role" to initialProfile.role,
+                    "openToWork" to true,
+                    "createdAt" to FieldValue.serverTimestamp(),
+                    "updatedAt" to FieldValue.serverTimestamp()
+                )
+                docRef.set(data, SetOptions.merge()).addOnSuccessListener {
+                    Log.d(TAG, "Diagnostic 3: Created users/$uid successfully.")
+                    onComplete?.invoke(initialProfile)
+                }.addOnFailureListener { e ->
+                    Log.e(TAG, "Failed to create users/$uid: ${e.localizedMessage}", e)
+                    onComplete?.invoke(initialProfile)
+                }
+            } else {
+                Log.d(TAG, "Diagnostic 2: Document users/$uid exists. Fetching profile.")
+                val profile = parseSnapshotToUserProfile(snapshot, context, currentUser)
+                saveProfileLocally(context, profile)
+
+                val updates = mutableMapOf<String, Any>()
+                val existingName = snapshot.getString("name") ?: ""
+                val existingEmail = snapshot.getString("email") ?: ""
+                val existingPhoto = snapshot.getString("photoUrl") ?: ""
+
+                if (existingName.isBlank() && !currentUser.displayName.isNullOrBlank()) {
+                    updates["name"] = currentUser.displayName ?: ""
+                }
+                if (existingEmail.isBlank() && !currentUser.email.isNullOrBlank()) {
+                    updates["email"] = currentUser.email ?: ""
+                }
+                if (existingPhoto.isBlank() && !currentUser.photoUrl?.toString().isNullOrBlank()) {
+                    updates["photoUrl"] = currentUser.photoUrl.toString()
+                }
+                if (updates.isNotEmpty()) {
+                    updates["updatedAt"] = FieldValue.serverTimestamp()
+                    docRef.set(updates, SetOptions.merge())
+                }
+
+                onComplete?.invoke(profile)
+            }
+        }.addOnFailureListener { e ->
+            Log.e(TAG, "Failed to fetch users/$uid from Firestore: ${e.localizedMessage}", e)
+            val local = loadLocalProfile(context)
+            onComplete?.invoke(local)
+        }
+    }
+
+    @JvmStatic
+    fun fetchProfileFromFirebase(context: Context, onComplete: (UserProfile) -> Unit) {
+        val uid = getCurrentUid()
+        if (uid.isNullOrBlank()) {
+            onComplete(loadLocalProfile(context))
+            return
+        }
+
+        Log.d(TAG, "Fetching profile users/$uid")
+        FirebaseFirestore.getInstance().collection(COLLECTION_USERS).document(uid)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                if (snapshot.exists()) {
+                    val currentUser = try { FirebaseAuth.getInstance().currentUser } catch (_: Exception) { null }
+                    val profile = parseSnapshotToUserProfile(snapshot, context, currentUser)
+                    saveProfileLocally(context, profile)
+                    onComplete(profile)
+                } else {
+                    ensureUserProfileExists(context, onComplete)
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "Error fetching users/$uid: ${e.localizedMessage}", e)
+                onComplete(loadLocalProfile(context))
+            }
+    }
+
+    private fun parseSnapshotToUserProfile(
+        snapshot: DocumentSnapshot,
+        context: Context,
+        currentUser: FirebaseUser?
+    ): UserProfile {
+        val uid = snapshot.getString("uid") ?: currentUser?.uid ?: getOrCreateUserId(context)
+        var name = snapshot.getString("name") ?: ""
+        if (name.isBlank() && currentUser?.displayName != null) name = currentUser.displayName ?: ""
+
+        var email = snapshot.getString("email") ?: ""
+        if (email.isBlank() && currentUser?.email != null) email = currentUser.email ?: ""
+
+        var photoUrl = snapshot.getString("photoUrl") ?: ""
+        if (photoUrl.isBlank() && currentUser?.photoUrl != null) photoUrl = currentUser.photoUrl.toString()
+
+        val role = if (isAdminEmail(email)) "admin" else (snapshot.getString("role") ?: "user")
+
+        val resumeMap = snapshot.get("resume") as? Map<*, *>
+        val resumeFileName = resumeMap?.get("fileName") as? String ?: snapshot.getString("resumeFileName") ?: ""
+        val resumeStoragePath = resumeMap?.get("storagePath") as? String ?: snapshot.getString("resumeStoragePath") ?: ""
+        val resumeDownloadUrl = resumeMap?.get("downloadUrl") as? String ?: snapshot.getString("resumeDownloadUrl") ?: ""
+        val resumeContentType = resumeMap?.get("contentType") as? String ?: snapshot.getString("resumeContentType") ?: ""
+        val resumeFileSize = (resumeMap?.get("fileSize") as? Number)?.toLong() ?: snapshot.getLong("resumeFileSize") ?: 0L
+        val resumeVersion = (resumeMap?.get("version") as? Number)?.toInt() ?: snapshot.getLong("resumeVersion")?.toInt() ?: 1
+        val resumeUpdatedAt = resumeMap?.get("updatedAt")?.toString() ?: snapshot.getString("resumeUpdatedAt") ?: ""
+
+        return UserProfile(
+            id = uid,
+            name = name,
+            email = email,
+            phone = snapshot.getString("phone") ?: "",
+            photoUrl = photoUrl,
+            headline = snapshot.getString("headline") ?: "",
+            jobRole = snapshot.getString("jobRole") ?: "",
+            skills = snapshot.getString("skills") ?: "",
+            location = snapshot.getString("location") ?: "",
+            openToWork = snapshot.getBoolean("openToWork") ?: true,
+            bio = snapshot.getString("bio") ?: "",
+            about = snapshot.getString("about") ?: "",
+            role = role,
+            dob = snapshot.getString("dob") ?: "",
+            linkedInUrl = snapshot.getString("linkedInUrl") ?: "",
+            githubUrl = snapshot.getString("githubUrl") ?: "",
+            portfolioUrl = snapshot.getString("portfolioUrl") ?: "",
+            websiteUrl = snapshot.getString("websiteUrl") ?: "",
+            resumeFileName = resumeFileName,
+            resumeStoragePath = resumeStoragePath,
+            resumeDownloadUrl = resumeDownloadUrl,
+            resumeContentType = resumeContentType,
+            resumeFileSize = resumeFileSize,
+            resumeData = snapshot.getString("resumeData") ?: "",
+            resumeUpdatedAt = resumeUpdatedAt,
+            resumeVersion = resumeVersion,
+            certifications = snapshot.getString("certifications") ?: "",
+            education = snapshot.getString("education") ?: "",
+            experience = snapshot.getString("experience") ?: "",
+            projects = snapshot.getString("projects") ?: "",
+            languages = snapshot.getString("languages") ?: "",
+            preferences = snapshot.getString("preferences") ?: "",
+            careerPreferences = snapshot.getString("careerPreferences") ?: "",
+            privacySettings = snapshot.getString("privacySettings") ?: "",
+            lastOpenedAt = snapshot.getLong("lastOpenedAt") ?: 0L
+        )
+    }
+
+    @JvmStatic
     fun saveProfileToFirebase(
         context: Context,
         profile: UserProfile,
         onResult: (Boolean, String) -> Unit
     ) {
         saveProfileLocally(context, profile)
-
-        executor.execute {
-            try {
-                val userId = getOrCreateUserId(context)
-                val firestoreUrl = "https://firestore.googleapis.com/v1/projects/$FIREBASE_PROJECT_ID/databases/(default)/documents/profiles/$userId"
-                val url = URL(firestoreUrl)
-                val connection = url.openConnection() as HttpURLConnection
-                connection.requestMethod = "PATCH"
-                connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-                connection.doOutput = true
-                connection.connectTimeout = 10000
-                connection.readTimeout = 10000
-
-                val resolvedRole = if (isAdminEmail(profile.email)) "admin" else profile.role
-
-                val fieldsObj = JSONObject().apply {
-                    put("name", JSONObject().put("stringValue", profile.name))
-                    put("email", JSONObject().put("stringValue", profile.email))
-                    put("phone", JSONObject().put("stringValue", profile.phone))
-                    put("photoUrl", JSONObject().put("stringValue", profile.photoUrl))
-                    put("headline", JSONObject().put("stringValue", profile.headline))
-                    put("jobRole", JSONObject().put("stringValue", profile.jobRole))
-                    put("skills", JSONObject().put("stringValue", profile.skills))
-                    put("location", JSONObject().put("stringValue", profile.location))
-                    put("openToWork", JSONObject().put("booleanValue", profile.openToWork))
-                    put("bio", JSONObject().put("stringValue", profile.bio))
-                    put("about", JSONObject().put("stringValue", profile.about))
-                    put("role", JSONObject().put("stringValue", resolvedRole))
-                    put("dob", JSONObject().put("stringValue", profile.dob))
-                    put("linkedInUrl", JSONObject().put("stringValue", profile.linkedInUrl))
-                    put("githubUrl", JSONObject().put("stringValue", profile.githubUrl))
-                    put("portfolioUrl", JSONObject().put("stringValue", profile.portfolioUrl))
-                    put("websiteUrl", JSONObject().put("stringValue", profile.websiteUrl))
-                    put("resumeFileName", JSONObject().put("stringValue", profile.resumeFileName))
-                    put("resumeUpdatedAt", JSONObject().put("stringValue", profile.resumeUpdatedAt))
-                    put("certifications", JSONObject().put("stringValue", profile.certifications))
-                    put("education", JSONObject().put("stringValue", profile.education))
-                    put("experience", JSONObject().put("stringValue", profile.experience))
-                    put("projects", JSONObject().put("stringValue", profile.projects))
-                    put("languages", JSONObject().put("stringValue", profile.languages))
-                    put("preferences", JSONObject().put("stringValue", profile.preferences))
-                    put("careerPreferences", JSONObject().put("stringValue", profile.careerPreferences))
-                    put("privacySettings", JSONObject().put("stringValue", profile.privacySettings))
-                    put("lastOpenedAt", JSONObject().put("integerValue", profile.lastOpenedAt))
-                    put("completionPercentage", JSONObject().put("integerValue", profile.calculateCompletionPercentage()))
-                    put("updatedAt", JSONObject().put("integerValue", System.currentTimeMillis()))
-                }
-
-                val payload = JSONObject().apply {
-                    put("fields", fieldsObj)
-                }
-
-                OutputStreamWriter(connection.outputStream).use { writer ->
-                    writer.write(payload.toString())
-                    writer.flush()
-                }
-
-                val responseCode = connection.responseCode
-                val success = responseCode in 200..299
-
-                mainHandler.post {
-                    if (success) {
-                        onResult(true, "Profile saved successfully!")
-                    } else {
-                        onResult(true, "Profile saved locally and synchronized!")
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                mainHandler.post {
-                    onResult(true, "Profile saved locally!")
-                }
-            }
+        val uid = getCurrentUid() ?: profile.id.ifBlank { null }
+        if (uid.isNullOrBlank()) {
+            onResult(false, "User not authenticated")
+            return
         }
+
+        val resolvedRole = if (isAdminEmail(profile.email)) "admin" else profile.role
+
+        val data = mutableMapOf<String, Any>(
+            "uid" to uid,
+            "name" to profile.name,
+            "email" to profile.email,
+            "phone" to profile.phone,
+            "photoUrl" to profile.photoUrl,
+            "headline" to profile.headline,
+            "jobRole" to profile.jobRole,
+            "skills" to profile.skills,
+            "location" to profile.location,
+            "openToWork" to profile.openToWork,
+            "bio" to profile.bio,
+            "about" to profile.about,
+            "role" to resolvedRole,
+            "dob" to profile.dob,
+            "linkedInUrl" to profile.linkedInUrl,
+            "githubUrl" to profile.githubUrl,
+            "portfolioUrl" to profile.portfolioUrl,
+            "websiteUrl" to profile.websiteUrl,
+            "certifications" to profile.certifications,
+            "education" to profile.education,
+            "experience" to profile.experience,
+            "projects" to profile.projects,
+            "languages" to profile.languages,
+            "preferences" to profile.preferences,
+            "careerPreferences" to profile.careerPreferences,
+            "privacySettings" to profile.privacySettings,
+            "updatedAt" to FieldValue.serverTimestamp()
+        )
+
+        if (profile.resumeFileName.isNotBlank() || profile.resumeStoragePath.isNotBlank()) {
+            data["resume"] = mapOf(
+                "fileName" to profile.resumeFileName,
+                "storagePath" to profile.resumeStoragePath,
+                "downloadUrl" to profile.resumeDownloadUrl,
+                "contentType" to profile.resumeContentType,
+                "fileSize" to profile.resumeFileSize,
+                "updatedAt" to FieldValue.serverTimestamp(),
+                "version" to profile.resumeVersion
+            )
+        }
+
+        Log.d(TAG, "Saving profile users/$uid to Firestore")
+        FirebaseFirestore.getInstance().collection(COLLECTION_USERS).document(uid)
+            .set(data, SetOptions.merge())
+            .addOnSuccessListener {
+                Log.d(TAG, "Successfully saved profile users/$uid to Firestore")
+                onResult(true, "")
+            }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "Failed to save users/$uid to Firestore: ${e.localizedMessage}", e)
+                onResult(false, e.localizedMessage ?: "Failed to save profile")
+            }
     }
 
     @JvmStatic
-    fun fetchJobsFromFirestore(onResult: (Boolean, String) -> Unit) {
-        executor.execute {
-            try {
-                val firestoreUrl = "https://firestore.googleapis.com/v1/projects/$FIREBASE_PROJECT_ID/databases/(default)/documents/jobs"
-                val url = URL(firestoreUrl)
-                val connection = url.openConnection() as HttpURLConnection
-                connection.requestMethod = "GET"
-                connection.connectTimeout = 10000
-                connection.readTimeout = 10000
-
-                val responseCode = connection.responseCode
-                if (responseCode in 200..299) {
-                    val reader = BufferedReader(InputStreamReader(connection.inputStream))
-                    val responseStr = reader.readText()
-                    reader.close()
-
-                    val root = JSONObject(responseStr)
-                    val docs = root.optJSONArray("documents") ?: JSONArray()
-                    val jobsArray = JSONArray()
-
-                    for (i in 0 until docs.length()) {
-                        val doc = docs.getJSONObject(i)
-                        val name = doc.optString("name", "")
-                        val jobId = name.substringAfterLast("/")
-                        val fields = doc.optJSONObject("fields") ?: JSONObject()
-
-                        val title = fields.optJSONObject("title")?.optString("stringValue") ?: "Software Engineer"
-                        val company = fields.optJSONObject("company")?.optString("stringValue") ?: "Tech Company"
-                        val location = fields.optJSONObject("location")?.optString("stringValue") ?: "Remote"
-                        val type = fields.optJSONObject("type")?.optString("stringValue") ?: fields.optJSONObject("jobType")?.optString("stringValue") ?: "Full Time"
-                        val salary = fields.optJSONObject("salary")?.optString("stringValue") ?: "Competitive"
-                        val experience = fields.optJSONObject("experience")?.optString("stringValue") ?: "1-3 Years"
-                        val description = fields.optJSONObject("description")?.optString("stringValue") ?: ""
-                        val applicationUrl = fields.optJSONObject("applicationUrl")?.optString("stringValue") ?: "https://example.com/apply"
-
-                        val reqSkillsObj = fields.optJSONObject("requiredSkills")
-                        val reqSkills = mutableListOf<String>()
-                        if (reqSkillsObj != null) {
-                            val arrayValues = reqSkillsObj.optJSONObject("arrayValue")?.optJSONArray("values")
-                            if (arrayValues != null) {
-                                for (j in 0 until arrayValues.length()) {
-                                    val valObj = arrayValues.getJSONObject(j)
-                                    reqSkills.add(valObj.optString("stringValue", ""))
-                                }
-                            }
-                        }
-
-                        val item = JSONObject().apply {
-                            put("id", jobId)
-                            put("title", title)
-                            put("company", company)
-                            put("location", location)
-                            put("type", type)
-                            put("salary", salary)
-                            put("experience", experience)
-                            put("description", description)
-                            put("applicationUrl", applicationUrl)
-                            put("requiredSkills", JSONArray(reqSkills))
-                        }
-                        jobsArray.put(item)
-                    }
-
-                    mainHandler.post {
-                        onResult(true, jobsArray.toString())
-                    }
-                } else {
-                    mainHandler.post {
-                        onResult(false, "Failed to load jobs from Firestore")
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-                mainHandler.post {
-                    onResult(false, e.localizedMessage ?: "Network error fetching jobs")
-                }
-            }
+    fun saveResumeMetadataToFirebase(
+        context: Context,
+        profile: UserProfile,
+        fileName: String,
+        storagePath: String,
+        downloadUrl: String,
+        contentType: String,
+        fileSize: Long,
+        newVersion: Int,
+        resumeData: String = "",
+        onResult: (Boolean, String) -> Unit
+    ) {
+        val uid = getCurrentUid() ?: profile.id.ifBlank { null }
+        if (uid.isNullOrBlank()) {
+            onResult(false, "User not authenticated")
+            return
         }
+
+        val updatedProfile = profile.copy(
+            resumeFileName = fileName,
+            resumeStoragePath = storagePath,
+            resumeDownloadUrl = downloadUrl,
+            resumeContentType = contentType,
+            resumeFileSize = fileSize,
+            resumeVersion = newVersion,
+            resumeData = resumeData.ifBlank { profile.resumeData },
+            resumeUpdatedAt = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date())
+        )
+        saveProfileLocally(context, updatedProfile)
+
+        val resumeMap = mapOf(
+            "fileName" to fileName,
+            "storagePath" to storagePath,
+            "downloadUrl" to downloadUrl,
+            "contentType" to contentType,
+            "fileSize" to fileSize,
+            "uploadedAt" to FieldValue.serverTimestamp(),
+            "updatedAt" to FieldValue.serverTimestamp(),
+            "version" to newVersion
+        )
+
+        val updateData = mutableMapOf<String, Any>(
+            "uid" to uid,
+            "resume" to resumeMap,
+            "resumeFileName" to fileName,
+            "resumeStoragePath" to storagePath,
+            "resumeDownloadUrl" to downloadUrl,
+            "resumeContentType" to contentType,
+            "resumeFileSize" to fileSize,
+            "resumeVersion" to newVersion,
+            "resumeUpdatedAt" to updatedProfile.resumeUpdatedAt,
+            "updatedAt" to FieldValue.serverTimestamp()
+        )
+        if (updatedProfile.resumeData.isNotBlank()) {
+            updateData["resumeData"] = updatedProfile.resumeData
+        }
+
+        Log.d(TAG, "Saving resume metadata users/$uid/resume to Firestore")
+        FirebaseFirestore.getInstance().collection(COLLECTION_USERS).document(uid)
+            .set(updateData as Map<String, Any>, SetOptions.merge())
+            .addOnSuccessListener {
+                Log.d(TAG, "Successfully saved resume metadata users/$uid to Firestore")
+                onResult(true, "")
+            }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "Failed to save resume metadata: ${e.localizedMessage}", e)
+                onResult(false, e.localizedMessage ?: "Failed to save resume metadata")
+            }
+    }
+
+    @JvmStatic
+    fun deleteResumeMetadataFromFirebase(
+        context: Context,
+        profile: UserProfile,
+        onResult: (Boolean, String) -> Unit
+    ) {
+        val uid = getCurrentUid() ?: profile.id.ifBlank { null }
+        if (uid.isNullOrBlank()) {
+            onResult(false, "User not authenticated")
+            return
+        }
+
+        val updatedProfile = profile.copy(
+            resumeFileName = "",
+            resumeStoragePath = "",
+            resumeDownloadUrl = "",
+            resumeContentType = "",
+            resumeFileSize = 0L,
+            resumeUpdatedAt = ""
+        )
+        saveProfileLocally(context, updatedProfile)
+
+        val updateData = mapOf(
+            "resume" to FieldValue.delete(),
+            "updatedAt" to FieldValue.serverTimestamp()
+        )
+
+        FirebaseFirestore.getInstance().collection(COLLECTION_USERS).document(uid)
+            .update(updateData)
+            .addOnSuccessListener {
+                onResult(true, "")
+            }
+            .addOnFailureListener { e ->
+                onResult(false, e.localizedMessage ?: "Failed to delete resume metadata")
+            }
     }
 }

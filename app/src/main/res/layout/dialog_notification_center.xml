@@ -13,7 +13,7 @@
         android:layout_height="4dp"
         android:layout_gravity="center_horizontal"
         android:layout_marginBottom="16dp"
-        android:background="#CBD5E1" />
+        android:background="@drawable/bg_chip" />
 
     <!-- Title Row -->
     <RelativeLayout
@@ -41,7 +41,7 @@
                 android:text="Job Alerts &amp; Notifications"
                 android:textSize="20sp"
                 android:textStyle="bold"
-                android:textColor="@color/titleTextColor" />
+                android:textColor="?android:attr/textColorPrimary" />
         </LinearLayout>
 
         <TextView
@@ -80,7 +80,7 @@
             android:layout_width="56dp"
             android:layout_height="56dp"
             android:src="@drawable/ic_notification"
-            app:tint="#94A3B8"
+            app:tint="?android:attr/textColorSecondary"
             android:layout_marginBottom="12dp"
             android:contentDescription="@string/app_name" />
 
@@ -88,7 +88,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="No new job notifications"
-            android:textColor="#64748B"
+            android:textColor="?android:attr/textColorPrimary"
             android:textSize="16sp"
             android:textStyle="bold" />
 
@@ -97,7 +97,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:text="When new job matches or alerts are added, they'll show up here."
-            android:textColor="#94A3B8"
+            android:textColor="?android:attr/textColorSecondary"
             android:textSize="13sp"
             android:gravity="center" />
     </LinearLayout>

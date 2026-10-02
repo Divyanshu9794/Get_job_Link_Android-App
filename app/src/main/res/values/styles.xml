@@ -2,20 +2,42 @@
 <resources>
     <style name="Theme.Median" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/colorPrimary</item>
-        <item name="titleTextColor">@color/titleTextColor</item>
+        <item name="colorSurface">@color/colorSurface</item>
+        <item name="colorSurfaceVariant">@color/colorSurfaceElevated</item>
+        <item name="colorBackgroundFloating">@color/colorSurface</item>
+        <item name="android:colorBackground">@color/colorBackground</item>
         <item name="colorAccent">@color/colorAccent</item>
         <item name="colorSecondary">@color/colorAccent</item>
-        <item name="android:colorBackground">@color/colorBackground</item>
-        <item name="materialAlertDialogTheme">@style/MaterialAlertDialogTheme</item>>
+        <item name="titleTextColor">@color/titleTextColor</item>
+        <item name="android:textColorPrimary">@color/textColorPrimary</item>
+        <item name="android:textColorSecondary">@color/textColorSecondary</item>
+        <item name="materialAlertDialogTheme">@style/MaterialAlertDialogTheme</item>
         <item name="alertDialogTheme">@style/AlertDialogTheme</item>
         <item name="android:alertDialogTheme">@style/LegacyAlertDialogTheme</item>
         <item name="android:datePickerDialogTheme">@style/DatePickerDialogTheme</item>
         <item name="android:timePickerDialogTheme">@style/DatePickerDialogTheme</item>
+        <item name="bottomSheetDialogTheme">@style/CustomBottomSheetDialogTheme</item>
     </style>
 
     <style name="Theme.Median.AppBarOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar" />
 
-    <style name="Theme.Median.PopupOverlay" parent="ThemeOverlay.AppCompat.Light" />
+    <style name="Theme.Median.PopupOverlay" parent="ThemeOverlay.AppCompat.DayNight" />
+
+    <style name="CustomBottomSheetDialogTheme" parent="ThemeOverlay.Material3.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/CustomBottomSheetStyle</item>
+    </style>
+
+    <style name="CustomBottomSheetStyle" parent="Widget.Material3.BottomSheet">
+        <item name="backgroundTint">@color/cardBackground</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.App.LargeComponent</item>
+    </style>
+
+    <style name="ShapeAppearance.App.LargeComponent" parent="ShapeAppearance.Material3.LargeComponent">
+        <item name="cornerSizeTopLeft">24dp</item>
+        <item name="cornerSizeTopRight">24dp</item>
+        <item name="cornerSizeBottomLeft">0dp</item>
+        <item name="cornerSizeBottomRight">0dp</item>
+    </style>
 
     <style name="Widget.App.BottomNavigationView" parent="Widget.Material3.BottomNavigationView">
         <item name="itemIconTint">@color/bottom_bar_text_color</item>
@@ -24,18 +46,15 @@
         <item name="elevation">8dp</item>
     </style>
 
-    <!--
-    In the Material 3 theme, the button text color in all types of AlertDialog defaults to the theme's primary color.
-    To ensure better visibility, override the button text color to use the accent color.
-    -->
     <style name="MaterialAlertDialogTheme" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="android:background">@color/cardBackground</item>
         <item name="buttonBarPositiveButtonStyle">@style/MyMaterialAlertDialogButtonStyle</item>
         <item name="buttonBarNegativeButtonStyle">@style/MyMaterialAlertDialogButtonStyle</item>
         <item name="buttonBarNeutralButtonStyle">@style/MyMaterialAlertDialogButtonStyle</item>
     </style>
 
-    <!-- Apply the same override for the androidx AlertDialog. -->
     <style name="AlertDialogTheme" parent="ThemeOverlay.MaterialComponents.Dialog.Alert">
+        <item name="android:background">@color/cardBackground</item>
         <item name="buttonBarButtonStyle">@style/MyMaterialAlertDialogButtonStyle</item>
     </style>
 
@@ -43,9 +62,8 @@
         <item name="android:textColor">@color/colorAccent</item>
     </style>
 
-    <!-- Apply the same override for the legacy AlertDialog. -->
     <style name="LegacyAlertDialogTheme" parent="Theme.Material3.DayNight.Dialog.Alert">
-        <item name="android:background">@color/colorBackground</item>
+        <item name="android:background">@color/cardBackground</item>
         <item name="android:textColorPrimary">@color/titleTextColor</item>
         <item name="android:buttonBarButtonStyle">@style/MyAlertDialogButtonStyle</item>
     </style>
@@ -63,7 +81,7 @@
         <item name="colorAccent">@color/colorAccent</item>
     </style>
 
-    <style name="SplashTheme" parent="Theme.SplashScreen">
+    <style name="SplashTheme" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="windowSplashScreenBackground">@color/splash_background</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/splash</item>
         <item name="postSplashScreenTheme">@style/Theme.Median</item>

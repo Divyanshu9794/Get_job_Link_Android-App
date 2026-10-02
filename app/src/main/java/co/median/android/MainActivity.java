@@ -169,6 +169,7 @@ public class MainActivity extends AppCompatActivity implements Observer,
     private FileDownloader fileDownloader;
     private FileWriterSharer fileWriterSharer;
     private LoginManager loginManager;
+    private FirebaseAuth.AuthStateListener authStateListener;
     private RegistrationManager registrationManager;
     private ConnectivityChangeReceiver connectivityReceiver;
     private KeyboardManager keyboardManager;
@@ -561,10 +562,12 @@ public class MainActivity extends AppCompatActivity implements Observer,
                         .setMessage("Are you sure you want to log out of GetJobLink?")
                         .setNegativeButton("Cancel", null)
                         .setPositiveButton("Log Out", (dialog, which) -> {
+                            FirebaseProfileRepository.clearLocalProfile(this);
                             FirebaseAuth.getInstance().signOut();
                             Intent intent = new Intent(this, AuthActivity.class);
                             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                             startActivity(intent);
+                            finish();
                         })
                         .show();
                     if (drawerLayout != null) {
@@ -819,9 +822,47 @@ public class MainActivity extends AppCompatActivity implements Observer,
         }
     }
 
+    public void updateAdminMenuAndHeader() {
+        NavigationView navMenu = findViewById(R.id.nav_menu);
+        if (navMenu != null) {
+            Menu menu = navMenu.getMenu();
+            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+            boolean isAdmin = currentUser != null && FirebaseProfileRepository.isAdminEmail(currentUser.getEmail());
+            int adminMenuId = 9999;
+
+            MenuItem adminItem = menu.findItem(adminMenuId);
+            if (isAdmin) {
+                if (adminItem == null) {
+                    menu.add(R.id.group_main, adminMenuId, 4, "Admin").setIcon(R.drawable.ic_work);
+                }
+            } else {
+                if (adminItem != null) {
+                    menu.removeItem(adminMenuId);
+                }
+            }
+        }
+        if (sideNavManager != null) {
+            sideNavManager.updateMenu("default");
+        }
+    }
+
     @Override
     protected void onStart() {
         super.onStart();
+        if (this.authStateListener == null) {
+            this.authStateListener = firebaseAuth -> {
+                FirebaseUser user = firebaseAuth.getCurrentUser();
+                if (user == null) {
+                    Intent intent = new Intent(MainActivity.this, AuthActivity.class);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
+                    finish();
+                } else {
+                    updateAdminMenuAndHeader();
+                }
+            };
+        }
+        FirebaseAuth.getInstance().addAuthStateListener(this.authStateListener);
         getGNApplication().mBridge.onActivityStart(this);
         if (AppConfig.getInstance(this).permissions.isWebRTCBluetoothAudioEnabled()) {
             AudioUtils.initAudioFocusListener(this);
@@ -859,6 +900,7 @@ public class MainActivity extends AppCompatActivity implements Observer,
 
         // check login status
         this.loginManager.checkLogin();
+        updateAdminMenuAndHeader();
 
         this.fileDownloader.onAppResume();
     }
@@ -866,6 +908,9 @@ public class MainActivity extends AppCompatActivity implements Observer,
     @Override
     protected void onStop() {
         super.onStop();
+        if (this.authStateListener != null) {
+            FirebaseAuth.getInstance().removeAuthStateListener(this.authStateListener);
+        }
         getGNApplication().mBridge.onActivityStop(this);
         if (isRoot) {
             if (AppConfig.getInstance(this).clearCache) {
@@ -1231,10 +1276,18 @@ public class MainActivity extends AppCompatActivity implements Observer,
             default -> "";
         };
 
-        this.systemBarManager.onThemeChanged(style);
-        this.actionManager.onThemeChanged();
-        this.tabManager.onThemeChanged();
-        this.sideNavManager.onThemeChanged();
+        if (this.systemBarManager != null) {
+            this.systemBarManager.onThemeChanged(style);
+        }
+        if (this.actionManager != null) {
+            this.actionManager.onThemeChanged();
+        }
+        if (this.tabManager != null) {
+            this.tabManager.onThemeChanged();
+        }
+        if (this.sideNavManager != null) {
+            this.sideNavManager.onThemeChanged();
+        }
         this.setupWebviewTheme(appTheme);
     }
 
@@ -1945,11 +1998,11 @@ public class MainActivity extends AppCompatActivity implements Observer,
 
     public void slideInNavigationBars() {
         AppConfig appConfig = AppConfig.getInstance(this);
-        if (actionManager.isHideOnScrollActive()) {
+        if (actionManager != null && actionManager.isHideOnScrollActive()) {
             actionManager.expandAppBar();
         }
 
-        if (appConfig.hideBottomNavBarOnScroll && !actionManager.isHideOnScrollActive()) {
+        if (tabManager != null && appConfig.hideBottomNavBarOnScroll && (actionManager == null || !actionManager.isHideOnScrollActive())) {
             tabManager.slideIn();
         }
     }

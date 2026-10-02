@@ -144,6 +144,7 @@ class SettingsFragment : Fragment() {
                 .setMessage("Are you sure you want to log out of GetJobLink?")
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Log Out") { _, _ ->
+                    FirebaseProfileRepository.clearLocalProfile(requireContext())
                     FirebaseAuth.getInstance().signOut()
                     val intent = Intent(requireContext(), AuthActivity::class.java).apply {
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK

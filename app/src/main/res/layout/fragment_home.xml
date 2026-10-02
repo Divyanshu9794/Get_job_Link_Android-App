@@ -56,7 +56,7 @@
                     android:layout_width="44dp"
                     android:layout_height="44dp"
                     android:src="@drawable/ic_profile"
-                    app:tint="@color/colorPrimary"
+                    app:tint="@color/colorAccent"
                     android:background="@drawable/bg_circle"
                     android:padding="8dp"
                     android:contentDescription="Profile"/>
@@ -76,7 +76,9 @@
                     android:layout_weight="1"
                     android:hint="Search jobs, skills, or companies..."
                     android:paddingHorizontal="16dp"
-                    android:background="@android:drawable/editbox_background_normal"
+                    android:background="@drawable/bg_input_field"
+                    android:textColor="?android:attr/textColorPrimary"
+                    android:textColorHint="?android:attr/textColorSecondary"
                     android:textSize="14sp"
                     android:inputType="text"
                     android:autofillHints="name"/>
@@ -86,6 +88,9 @@
                     android:layout_width="wrap_content"
                     android:layout_height="48dp"
                     android:text="Search"
+                    android:textStyle="bold"
+                    android:backgroundTint="@color/colorAccent"
+                    android:textColor="#FFFFFF"
                     android:layout_marginStart="8dp"/>
             </LinearLayout>
 
@@ -118,8 +123,9 @@
                 android:layout_marginTop="16dp"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/cardBackground"
                 app:strokeWidth="1dp"
-                app:strokeColor="#E2E8F0">
+                app:strokeColor="@color/cardStrokeColor">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -142,7 +148,8 @@
                         android:layout_height="8dp"
                         android:layout_marginTop="8dp"
                         android:max="100"
-                        android:progress="80"/>
+                        android:progress="80"
+                        android:progressTint="@color/colorAccent"/>
 
                     <TextView
                         android:id="@+id/profileProgressText"
@@ -159,7 +166,7 @@
                         android:layout_height="wrap_content"
                         android:text="Complete Profile →"
                         android:textStyle="bold"
-                        android:textColor="@color/colorPrimary"
+                        android:textColor="@color/colorAccent"
                         android:layout_marginTop="8dp"/>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -186,7 +193,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="See All →"
-                    android:textColor="@color/colorPrimary"
+                    android:textColor="@color/colorAccent"
                     android:textStyle="bold"/>
             </LinearLayout>
 
@@ -205,77 +212,79 @@
                 android:layout_marginTop="20dp"
                 android:gravity="center_vertical">
 
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Latest Jobs"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="?android:attr/textColorPrimary"/>
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Latest Jobs"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="?android:attr/textColorPrimary"/>
 
-            <TextView
-                android:id="@+id/viewAllLatestBtn"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="See All →"
-                android:textColor="@color/colorPrimary"
-                android:textStyle="bold"/>
-        </LinearLayout>
+                <TextView
+                    android:id="@+id/viewAllLatestBtn"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="See All →"
+                    android:textColor="@color/colorAccent"
+                    android:textStyle="bold"/>
+            </LinearLayout>
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/latestRecyclerView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:nestedScrollingEnabled="false"/>
-
-        <!-- Explore All Jobs CTA -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:layout_marginBottom="24dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="2dp">
-
-            <LinearLayout
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/latestRecyclerView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp"
-                android:gravity="center"
-                android:background="@color/colorPrimary">
+                android:layout_marginTop="8dp"
+                android:nestedScrollingEnabled="false"/>
 
-                <TextView
-                    android:layout_width="wrap_content"
+            <!-- Explore All Jobs CTA -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:layout_marginBottom="24dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/cardBackground"
+                app:strokeWidth="1dp"
+                app:strokeColor="@color/cardStrokeColor">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Explore All Opportunities"
-                    android:textColor="#FFFFFF"
-                    android:textSize="18sp"
-                    android:textStyle="bold"/>
+                    android:orientation="vertical"
+                    android:padding="20dp"
+                    android:gravity="center">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Discover all jobs currently available on GetJobLink."
-                    android:textColor="#E2E8F0"
-                    android:textSize="13sp"
-                    android:layout_marginTop="4dp"
-                    android:gravity="center"/>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Explore All Opportunities"
+                        android:textColor="?android:attr/textColorPrimary"
+                        android:textSize="18sp"
+                        android:textStyle="bold"/>
 
-                <Button
-                    android:id="@+id/exploreAllBtn"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="View All Jobs"
-                    android:textColor="@color/colorPrimary"
-                    android:backgroundTint="#FFFFFF"
-                    android:textStyle="bold"
-                    android:layout_marginTop="12dp"/>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Discover all jobs currently available on GetJobLink."
+                        android:textColor="?android:attr/textColorSecondary"
+                        android:textSize="13sp"
+                        android:layout_marginTop="4dp"
+                        android:gravity="center"/>
 
-    </LinearLayout>
+                    <Button
+                        android:id="@+id/exploreAllBtn"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="View All Jobs"
+                        android:textColor="#FFFFFF"
+                        android:backgroundTint="@color/colorAccent"
+                        android:textStyle="bold"
+                        android:layout_marginTop="12dp"/>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
     </ScrollView>
 </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>

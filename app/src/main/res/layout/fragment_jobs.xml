@@ -14,7 +14,9 @@
         android:layout_height="48dp"
         android:hint="Search jobs, skills, location..."
         android:paddingHorizontal="12dp"
-        android:background="@android:drawable/editbox_background_normal"
+        android:background="@drawable/bg_input_field"
+        android:textColor="?android:attr/textColorPrimary"
+        android:textColorHint="?android:attr/textColorSecondary"
         android:textSize="14sp"
         android:layout_marginBottom="8dp"/>
 
@@ -60,7 +62,7 @@
             android:layout_height="wrap_content"
             android:text=""
             android:textSize="12sp"
-            android:textColor="@color/colorPrimary"
+            android:textColor="@color/colorAccent"
             android:textStyle="bold"/>
     </LinearLayout>
 
@@ -117,7 +119,7 @@
                     android:layout_width="64dp"
                     android:layout_height="64dp"
                     android:src="@drawable/ic_search_off"
-                    app:tint="@android:color/darker_gray"
+                    app:tint="?android:attr/textColorSecondary"
                     android:contentDescription="No jobs found"/>
 
                 <TextView
@@ -136,7 +138,7 @@
                     android:layout_height="wrap_content"
                     android:text="Try removing some filters or changing your search."
                     android:textSize="13sp"
-                    android:textColor="@android:color/darker_gray"
+                    android:textColor="?android:attr/textColorSecondary"
                     android:gravity="center"
                     android:layout_marginTop="4dp"/>
 

@@ -13,6 +13,7 @@ import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import kotlinx.coroutines.*
 
 class NotificationsFragment : Fragment() {
 
@@ -88,20 +89,57 @@ class NotificationsFragment : Fragment() {
         }
 
         val context = context ?: return
-        val items = NotificationHelper.getNotificationHistory(context)
+        val historyItems = NotificationHelper.getNotificationHistory(context).toMutableList()
+
         NotificationHelper.markAllAsRead(context)
+        NotificationMatchingHelper.markNotificationsAsRead(context)
+
+        if (historyItems.isEmpty()) {
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val allJobs = JobRepository.getAllJobs()
+                    val matchingJobs = NotificationMatchingHelper.getUnreadMatchingJobs(context, allJobs)
+                    val matchingNotificationItems = matchingJobs.map { job ->
+                        NotificationItem(
+                            title = job.title.ifBlank { "New Job Opening" },
+                            message = "${job.company.ifBlank { "Company" }} - ${job.location.ifBlank { "Remote" }} (${job.jobType.ifBlank { "Full-time" }})",
+                            targetUrl = job.applicationUrl,
+                            jobId = job.id,
+                            timestamp = job.createdAt.takeIf { it > 0 } ?: System.currentTimeMillis()
+                        )
+                    }
+                    withContext(Dispatchers.Main) {
+                        progressBar.visibility = View.GONE
+                        swipeRefreshLayout.isRefreshing = false
+
+                        val combined = matchingNotificationItems
+                        if (combined.isNotEmpty()) {
+                            emptyStateContainer.visibility = View.GONE
+                            recyclerView.visibility = View.VISIBLE
+                            adapter.updateItems(combined)
+                        } else {
+                            recyclerView.visibility = View.GONE
+                            emptyStateContainer.visibility = View.VISIBLE
+                        }
+                    }
+                } catch (_: Exception) {
+                    withContext(Dispatchers.Main) {
+                        progressBar.visibility = View.GONE
+                        swipeRefreshLayout.isRefreshing = false
+                        recyclerView.visibility = View.GONE
+                        emptyStateContainer.visibility = View.VISIBLE
+                    }
+                }
+            }
+            return
+        }
 
         progressBar.visibility = View.GONE
         swipeRefreshLayout.isRefreshing = false
 
-        if (items.isNotEmpty()) {
-            emptyStateContainer.visibility = View.GONE
-            recyclerView.visibility = View.VISIBLE
-            adapter.updateItems(items)
-        } else {
-            recyclerView.visibility = View.GONE
-            emptyStateContainer.visibility = View.VISIBLE
-        }
+        emptyStateContainer.visibility = View.GONE
+        recyclerView.visibility = View.VISIBLE
+        adapter.updateItems(historyItems)
     }
 
     private class NotificationHistoryAdapter(

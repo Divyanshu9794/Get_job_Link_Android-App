@@ -81,11 +81,16 @@ class JobDetailsActivity : AppCompatActivity() {
         setupMatchScoreButton()
     }
 
+    override fun onResume() {
+        super.onResume()
+        setupMatchScoreButton()
+    }
+
     private fun setupMatchScoreButton() {
         val btnCheckMatch = findViewById<MaterialButton>(R.id.btnCheckMatch) ?: return
         val currentUser = FirebaseAuth.getInstance().currentUser
         val profile = FirebaseProfileRepository.loadLocalProfile(this)
-        val hasResume = profile.resumeFileName.isNotBlank() || profile.resumeData.isNotBlank() || profile.skills.isNotBlank()
+        val hasResume = profile.resumeFileName.isNotBlank() || profile.resumeDownloadUrl.isNotBlank() || profile.resumeData.isNotBlank() || profile.resumeStoragePath.isNotBlank()
 
         when {
             currentUser == null -> {

@@ -25,10 +25,10 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:minHeight="?attr/actionBarSize"
-                android:background="@color/colorPrimary"
+                android:background="@color/headerBackground"
                 app:title="GetJobLink"
                 app:titleCentered="true"
-                app:titleTextColor="#FFFFFF"
+                app:titleTextColor="@color/headerTitleColor"
                 app:elevation="4dp">
 
                 <ImageView
@@ -88,11 +88,6 @@
             app:layout_behavior="co.median.android.widget.BottomNavigationShowOnScrollBehavior"
             android:tag="bottom_navigation"/>
     </androidx.coordinatorlayout.widget.CoordinatorLayout>
-
-    <!-- On Android 15+, system bars are transparent by default.
-         To customize their appearance, the background views below are placed behind the bars,
-         allowing the app to apply specific colors.
-         These views are not used on Android 14 or lower. -->
 
     <View
         android:id="@+id/status_bar_background"

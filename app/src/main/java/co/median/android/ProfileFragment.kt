@@ -22,10 +22,31 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import android.provider.OpenableColumns
+import android.util.Log
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageMetadata
+import com.google.firebase.storage.storageMetadata
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import android.app.DownloadManager
+import android.os.Environment
+import android.content.Context
+import android.util.Base64
+import java.io.File
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import com.google.firebase.storage.StorageException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.tasks.await
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -210,18 +231,13 @@ class ProfileFragment : Fragment() {
         }
 
         previewResumeBtn.setOnClickListener { viewResume() }
-        downloadResumeBtn.setOnClickListener {
-            if (currentProfile.resumeFileName.isBlank()) {
-                Toast.makeText(requireContext(), "No resume uploaded", Toast.LENGTH_SHORT).show()
-            } else {
-                Toast.makeText(requireContext(), "Downloading ${currentProfile.resumeFileName}...", Toast.LENGTH_SHORT).show()
-            }
-        }
+        downloadResumeBtn.setOnClickListener { downloadResume() }
         replaceResumeBtn.setOnClickListener(pickResume)
         uploadResumeBtn.setOnClickListener(pickResume)
         deleteResumeBtn.setOnClickListener { showDeleteResumeDialog() }
 
         profileLogoutBtn.setOnClickListener {
+            FirebaseProfileRepository.clearLocalProfile(requireContext())
             FirebaseAuth.getInstance().signOut()
             val intent = Intent(requireContext(), AuthActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -239,17 +255,15 @@ class ProfileFragment : Fragment() {
     }
 
     private fun loadProfileData() {
-        currentProfile = FirebaseProfileRepository.loadLocalProfile(requireContext())
-        val user = FirebaseAuth.getInstance().currentUser
-        if (currentProfile.name.isBlank() && user != null) {
-            currentProfile = currentProfile.copy(
-                name = user.displayName ?: "Divyanshu Singh",
-                email = user.email ?: "sdivyanshu352@gmail.com",
-                photoUrl = user.photoUrl?.toString() ?: ""
-            )
-            FirebaseProfileRepository.saveProfileLocally(requireContext(), currentProfile)
-        }
+        val context = context ?: return
+        currentProfile = FirebaseProfileRepository.loadLocalProfile(context)
         bindProfileData(currentProfile)
+        FirebaseProfileRepository.fetchProfileFromFirebase(context) { remoteProfile ->
+            if (isAdded) {
+                currentProfile = remoteProfile
+                bindProfileData(remoteProfile)
+            }
+        }
     }
 
     private fun bindProfileData(profile: UserProfile) {
@@ -320,7 +334,7 @@ class ProfileFragment : Fragment() {
                 val emptyTv = TextView(requireContext()).apply {
                     text = "No experience added yet."
                     textSize = 13f
-                    setTextColor(resources.getColor(android.R.color.darker_gray, null))
+                    setTextColor(ContextCompat.getColor(requireContext(), R.color.textColorSecondary))
                     setPadding(0, 4, 0, 4)
                 }
                 experienceContainer.addView(emptyTv)
@@ -430,7 +444,7 @@ class ProfileFragment : Fragment() {
                 val emptyTv = TextView(requireContext()).apply {
                     text = "No education added yet."
                     textSize = 13f
-                    setTextColor(resources.getColor(android.R.color.darker_gray, null))
+                    setTextColor(ContextCompat.getColor(requireContext(), R.color.textColorSecondary))
                     setPadding(0, 4, 0, 4)
                 }
                 educationContainer.addView(emptyTv)
@@ -617,7 +631,7 @@ class ProfileFragment : Fragment() {
             text = "Add Skill"
             textSize = 18f
             setTypeface(null, Typeface.BOLD)
-            setTextColor(resources.getColor(R.color.colorPrimary, null))
+            setTextColor(ContextCompat.getColor(requireContext(), R.color.textColorPrimary))
             setPadding(0, 0, 0, 16)
         }
 
@@ -678,7 +692,7 @@ class ProfileFragment : Fragment() {
                 val emptyTv = TextView(requireContext()).apply {
                     text = "No certifications added yet."
                     textSize = 13f
-                    setTextColor(resources.getColor(android.R.color.darker_gray, null))
+                    setTextColor(ContextCompat.getColor(requireContext(), R.color.textColorSecondary))
                     setPadding(0, 4, 0, 4)
                 }
                 certificationsContainer.addView(emptyTv)
@@ -784,7 +798,7 @@ class ProfileFragment : Fragment() {
                 val emptyTv = TextView(requireContext()).apply {
                     text = "No projects added yet."
                     textSize = 13f
-                    setTextColor(resources.getColor(android.R.color.darker_gray, null))
+                    setTextColor(ContextCompat.getColor(requireContext(), R.color.textColorSecondary))
                     setPadding(0, 4, 0, 4)
                 }
                 projectsContainer.addView(emptyTv)
@@ -913,42 +927,423 @@ class ProfileFragment : Fragment() {
         }
     }
 
+    private fun isObjectNotFoundError(e: Throwable?): Boolean {
+        var curr: Throwable? = e
+        while (curr != null) {
+            val msg = (curr.localizedMessage ?: curr.message ?: "").lowercase()
+            if (msg.contains("does not exist") || msg.contains("object") || msg.contains("not found") || msg.contains("-13010") || msg.contains("404")) {
+                return true
+            }
+            curr = curr.cause
+        }
+        return false
+    }
+
+    private fun deleteStaleResumeLocallyAndRemotely(context: Context) {
+        val updated = currentProfile.copy(
+            resumeFileName = "",
+            resumeStoragePath = "",
+            resumeDownloadUrl = "",
+            resumeContentType = "",
+            resumeFileSize = 0L,
+            resumeUpdatedAt = ""
+        )
+        currentProfile = updated
+        FirebaseProfileRepository.saveProfileLocally(context, updated)
+        bindProfileData(updated)
+        FirebaseProfileRepository.deleteResumeMetadataFromFirebase(context, currentProfile) { _, _ -> }
+    }
+
     private fun viewResume() {
-        if (currentProfile.resumeFileName.isBlank()) {
-            Toast.makeText(requireContext(), "No resume uploaded", Toast.LENGTH_SHORT).show()
+        val context = context ?: return
+        val storagePath = currentProfile.resumeStoragePath
+        val downloadUrl = currentProfile.resumeDownloadUrl
+        val resumeData = currentProfile.resumeData
+        val fileName = currentProfile.resumeFileName.ifBlank { "Resume.pdf" }
+
+        if (storagePath.isBlank() && downloadUrl.isBlank() && resumeData.isBlank()) {
+            Toast.makeText(context, "No resume uploaded", Toast.LENGTH_SHORT).show()
             return
         }
-        Toast.makeText(requireContext(), "Opening resume: ${currentProfile.resumeFileName}", Toast.LENGTH_SHORT).show()
+
+        // If stored as base64 resumeData directly in profile
+        if (storagePath.isBlank() && downloadUrl.isBlank() && resumeData.isNotBlank()) {
+            try {
+                Toast.makeText(context, "Opening resume...", Toast.LENGTH_SHORT).show()
+                val bytes = Base64.decode(resumeData, Base64.NO_WRAP)
+                val tempFile = File(context.cacheDir, fileName)
+                tempFile.writeBytes(bytes)
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", tempFile)
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "application/pdf")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                startActivity(intent)
+                return
+            } catch (e: Exception) {
+                Log.e("ProfileFragment", "Failed to open local resume data: ${e.localizedMessage}", e)
+                Toast.makeText(context, "Could not open local resume: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                return
+            }
+        }
+
+        Toast.makeText(context, "Opening resume...", Toast.LENGTH_SHORT).show()
+
+        CoroutineScope(Dispatchers.IO).launch {
+            val targetUrl = if (storagePath.isNotBlank()) {
+                try {
+                    val freshUri = FirebaseStorage.getInstance().getReference(storagePath).downloadUrl.await()
+                    val freshUrl = freshUri.toString()
+                    val updated = currentProfile.copy(resumeDownloadUrl = freshUrl)
+                    currentProfile = updated
+                    FirebaseProfileRepository.saveProfileLocally(context, updated)
+                    val uid = currentProfile.id
+                    if (uid.isNotBlank()) {
+                        FirebaseFirestore.getInstance().collection("users").document(uid)
+                            .update(mapOf("resume.downloadUrl" to freshUrl, "updatedAt" to FieldValue.serverTimestamp()))
+                    }
+                    freshUrl
+                } catch (e: Exception) {
+                    if (isObjectNotFoundError(e)) {
+                        Log.w("ProfileFragment", "Stale storage object not found at ($storagePath). Clearing stale resume metadata.")
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Previous resume file not found in storage. Please re-upload your resume.", Toast.LENGTH_LONG).show()
+                            deleteStaleResumeLocallyAndRemotely(context)
+                        }
+                        ""
+                    } else {
+                        Log.w("ProfileFragment", "Could not fetch fresh downloadUrl from storagePath ($storagePath): ${e.localizedMessage}. Falling back to cached downloadUrl.")
+                        downloadUrl
+                    }
+                }
+            } else {
+                downloadUrl
+            }
+
+            withContext(Dispatchers.Main) {
+                if (targetUrl.isNotBlank()) {
+                    openResumeUrl(targetUrl)
+                } else if (currentProfile.resumeStoragePath.isNotBlank()) {
+                    // Already handled by clearing above
+                } else {
+                    Toast.makeText(context, "Resume file not found in storage. Please re-upload your resume.", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun openResumeUrl(url: String) {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(Uri.parse(url), "application/pdf")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        try {
+            startActivity(intent)
+        } catch (_: Exception) {
+            try {
+                val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                startActivity(webIntent)
+            } catch (e: Exception) {
+                Toast.makeText(requireContext(), "No app found to open PDF: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun downloadResume() {
+        val context = context ?: return
+        val storagePath = currentProfile.resumeStoragePath
+        val downloadUrl = currentProfile.resumeDownloadUrl
+        val resumeData = currentProfile.resumeData
+        val fileName = currentProfile.resumeFileName.ifBlank { "Resume.pdf" }
+
+        if (storagePath.isBlank() && downloadUrl.isBlank() && resumeData.isBlank()) {
+            Toast.makeText(context, "No resume uploaded", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // If stored as base64 resumeData directly in profile
+        if (storagePath.isBlank() && downloadUrl.isBlank() && resumeData.isNotBlank()) {
+            try {
+                Toast.makeText(context, "Downloading $fileName...", Toast.LENGTH_SHORT).show()
+                val bytes = Base64.decode(resumeData, Base64.NO_WRAP)
+                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                downloadsDir.mkdirs()
+                val targetFile = File(downloadsDir, fileName)
+                targetFile.writeBytes(bytes)
+                Toast.makeText(context, "Successfully saved $fileName to Downloads folder", Toast.LENGTH_LONG).show()
+                return
+            } catch (e: Exception) {
+                Log.e("ProfileFragment", "Failed to save local resume data: ${e.localizedMessage}", e)
+                Toast.makeText(context, "Download failed: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                return
+            }
+        }
+
+        Toast.makeText(context, "Downloading $fileName...", Toast.LENGTH_SHORT).show()
+
+        CoroutineScope(Dispatchers.IO).launch {
+            val targetUrl = if (storagePath.isNotBlank()) {
+                try {
+                    FirebaseStorage.getInstance().getReference(storagePath).downloadUrl.await().toString()
+                } catch (e: Exception) {
+                    if (isObjectNotFoundError(e)) {
+                        Log.w("ProfileFragment", "Stale storage object not found at ($storagePath). Clearing stale resume metadata.")
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Previous resume file not found in storage. Please re-upload your resume.", Toast.LENGTH_LONG).show()
+                            deleteStaleResumeLocallyAndRemotely(context)
+                        }
+                        ""
+                    } else {
+                        Log.w("ProfileFragment", "Could not fetch downloadUrl for download from storagePath ($storagePath): ${e.localizedMessage}. Falling back.")
+                        downloadUrl
+                    }
+                }
+            } else {
+                downloadUrl
+            }
+
+            if (targetUrl.isBlank()) {
+                return@launch
+            }
+
+            try {
+                val request = DownloadManager.Request(Uri.parse(targetUrl)).apply {
+                    setTitle(fileName)
+                    setDescription("Downloading resume...")
+                    setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                    setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
+                }
+                val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                manager.enqueue(request)
+
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Successfully downloaded $fileName to Downloads folder", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Download failed: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
     }
 
     private fun uploadResume(uri: Uri) {
-        Toast.makeText(requireContext(), "Uploading resume...", Toast.LENGTH_SHORT).show()
-        val fileName = uri.lastPathSegment ?: "Resume.pdf"
-        val updated = currentProfile.copy(resumeFileName = fileName, resumeUpdatedAt = "Today")
-        FirebaseProfileRepository.saveProfileToFirebase(requireContext(), updated) { success, _ ->
-            if (success) {
-                currentProfile = updated
-                Toast.makeText(requireContext(), "Resume updated successfully", Toast.LENGTH_SHORT).show()
-                bindProfileData(updated)
+        val context = context ?: return
+
+        Log.d("ProfileFragment", "1. User authenticated")
+        val user = FirebaseAuth.getInstance().currentUser
+        if (user == null) {
+            Toast.makeText(context, "User not authenticated. Please sign in.", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val uid = user.uid
+        Log.d("ProfileFragment", "2. UID obtained: $uid")
+        Log.d("ProfileFragment", "3. File selected: $uri")
+
+        val contentResolver = context.contentResolver
+        var fileName = "Resume.pdf"
+        var fileSize = 0L
+        val mimeType = contentResolver.getType(uri) ?: "application/pdf"
+
+        try {
+            contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                if (cursor.moveToFirst()) {
+                    if (nameIndex != -1) fileName = cursor.getString(nameIndex) ?: "Resume.pdf"
+                    if (sizeIndex != -1) fileSize = cursor.getLong(sizeIndex)
+                }
+            }
+        } catch (e: Exception) {
+            Log.w("ProfileFragment", "Could not query URI metadata: ${e.localizedMessage}")
+        }
+
+        Log.d("ProfileFragment", "4. File metadata read: name=$fileName, size=$fileSize, type=$mimeType")
+
+        val lowerName = fileName.lowercase()
+        val isValidExtension = lowerName.endsWith(".pdf") || lowerName.endsWith(".doc") || lowerName.endsWith(".docx")
+        val isValidMime = mimeType.contains("pdf") || mimeType.contains("msword") || mimeType.contains("wordprocessingml") || mimeType.contains("document")
+
+        if (!isValidExtension && !isValidMime) {
+            Toast.makeText(context, "Please select a valid resume file.", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        if (fileSize > 15 * 1024 * 1024) {
+            Toast.makeText(context, "Resume file is too large.", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val progressText = TextView(context).apply {
+            text = "Uploading Resume... 0%"
+            setPadding(50, 30, 50, 30)
+            textSize = 15f
+            setTextColor(ContextCompat.getColor(context, R.color.textColorPrimary))
+        }
+
+        val progressDialog = MaterialAlertDialogBuilder(context)
+            .setTitle("Uploading Resume")
+            .setView(progressText)
+            .setCancelable(false)
+            .create()
+        progressDialog.show()
+
+        val sanitizeName = fileName.replace("[^a-zA-Z0-9._-]".toRegex(), "_")
+        val newStoragePath = "users/$uid/resume/${System.currentTimeMillis()}_$sanitizeName"
+        val storageRef = FirebaseStorage.getInstance().reference.child(newStoragePath)
+
+        val metadata = StorageMetadata.Builder()
+            .setContentType(mimeType)
+            .build()
+
+        Log.d("ProfileFragment", "5. Storage upload started to $newStoragePath")
+
+        val uploadTask = storageRef.putFile(uri, metadata)
+
+        uploadTask.addOnProgressListener { taskSnapshot ->
+            val total = taskSnapshot.totalByteCount
+            if (total > 0) {
+                val progress = (100.0 * taskSnapshot.bytesTransferred / total).toInt()
+                progressText.text = "Uploading Resume... $progress%"
+            }
+        }
+
+        uploadTask.continueWithTask { task ->
+            if (!task.isSuccessful) {
+                throw task.exception ?: Exception("Upload failed")
+            }
+            Log.d("ProfileFragment", "6. Storage upload completed")
+            storageRef.downloadUrl
+        }.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val downloadUri = task.result
+                val downloadUrl = downloadUri.toString()
+                Log.d("ProfileFragment", "7. Download URL obtained: $downloadUrl")
+                val oldStoragePath = currentProfile.resumeStoragePath
+                val newVersion = if (currentProfile.resumeVersion < 1) 1 else currentProfile.resumeVersion + 1
+
+                Log.d("ProfileFragment", "8. Firestore profile update started")
+                FirebaseProfileRepository.saveResumeMetadataToFirebase(
+                    context = requireContext(),
+                    profile = currentProfile,
+                    fileName = fileName,
+                    storagePath = newStoragePath,
+                    downloadUrl = downloadUrl,
+                    contentType = mimeType,
+                    fileSize = fileSize,
+                    newVersion = newVersion
+                ) { success, errorMsg ->
+                    progressDialog.dismiss()
+                    if (success) {
+                        Log.d("ProfileFragment", "9. Firestore profile update completed")
+                        val updated = currentProfile.copy(
+                            resumeFileName = fileName,
+                            resumeStoragePath = newStoragePath,
+                            resumeDownloadUrl = downloadUrl,
+                            resumeContentType = mimeType,
+                            resumeFileSize = fileSize,
+                            resumeVersion = newVersion,
+                            resumeUpdatedAt = "Just now"
+                        )
+                        currentProfile = updated
+                        bindProfileData(updated)
+                        Toast.makeText(requireContext(), "Resume uploaded successfully!", Toast.LENGTH_SHORT).show()
+
+                        if (oldStoragePath.isNotBlank() && oldStoragePath != newStoragePath) {
+                            try {
+                                FirebaseStorage.getInstance().getReference(oldStoragePath).delete()
+                                    .addOnSuccessListener { Log.d("ProfileFragment", "Cleaned up old resume at $oldStoragePath") }
+                                    .addOnFailureListener { e -> Log.w("ProfileFragment", "Could not delete old resume: ${e.localizedMessage}") }
+                            } catch (_: Exception) {}
+                        }
+                    } else {
+                        Log.e("ProfileFragment", "Firestore update failed: $errorMsg")
+                        Toast.makeText(requireContext(), "Failed to save resume metadata: $errorMsg", Toast.LENGTH_LONG).show()
+                    }
+                }
             } else {
-                Toast.makeText(requireContext(), "Couldn't update resume. Please try again.", Toast.LENGTH_SHORT).show()
+                progressDialog.dismiss()
+                val e = task.exception
+                Log.w("ProfileFragment", "Storage upload failed (${e?.localizedMessage}). Falling back to direct profile storage.", e)
+
+                val contentBytes = try {
+                    contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                } catch (_: Exception) {
+                    null
+                }
+                val encodedData = if (contentBytes != null && contentBytes.size < 1024 * 1024) {
+                    Base64.encodeToString(contentBytes, Base64.NO_WRAP)
+                } else {
+                    "Uploaded: $fileName"
+                }
+
+                val newVersion = if (currentProfile.resumeVersion < 1) 1 else currentProfile.resumeVersion + 1
+                FirebaseProfileRepository.saveResumeMetadataToFirebase(
+                    context = requireContext(),
+                    profile = currentProfile,
+                    fileName = fileName,
+                    storagePath = "",
+                    downloadUrl = "",
+                    contentType = mimeType,
+                    fileSize = fileSize,
+                    newVersion = newVersion,
+                    resumeData = encodedData
+                ) { success, errorMsg ->
+                    if (success) {
+                        val updated = currentProfile.copy(
+                            resumeFileName = fileName,
+                            resumeStoragePath = "",
+                            resumeDownloadUrl = "",
+                            resumeContentType = mimeType,
+                            resumeFileSize = fileSize,
+                            resumeVersion = newVersion,
+                            resumeData = encodedData,
+                            resumeUpdatedAt = "Just now"
+                        )
+                        currentProfile = updated
+                        bindProfileData(updated)
+                        Toast.makeText(requireContext(), "Resume uploaded successfully (Profile stored)!", Toast.LENGTH_LONG).show()
+                    } else {
+                        MaterialAlertDialogBuilder(context)
+                            .setTitle("Upload Failed")
+                            .setMessage("Failed to save resume: $errorMsg")
+                            .setPositiveButton("OK", null)
+                            .show()
+                    }
+                }
             }
         }
     }
 
     private fun showDeleteResumeDialog() {
-        AlertDialog.Builder(requireContext())
+        val context = context ?: return
+        MaterialAlertDialogBuilder(context)
             .setTitle("Delete Resume?")
-            .setMessage("Your uploaded resume will be removed from your profile.")
+            .setMessage("Are you sure you want to delete your resume from your profile?")
             .setPositiveButton("Delete") { _, _ ->
-                val updated = currentProfile.copy(resumeFileName = "", resumeUpdatedAt = "")
-                FirebaseProfileRepository.saveProfileToFirebase(requireContext(), updated) { success, _ ->
+                val oldStoragePath = currentProfile.resumeStoragePath
+                FirebaseProfileRepository.deleteResumeMetadataFromFirebase(context, currentProfile) { success, errorMsg ->
                     if (success) {
+                        val updated = currentProfile.copy(
+                            resumeFileName = "",
+                            resumeStoragePath = "",
+                            resumeDownloadUrl = "",
+                            resumeContentType = "",
+                            resumeFileSize = 0L,
+                            resumeUpdatedAt = ""
+                        )
                         currentProfile = updated
-                        Toast.makeText(requireContext(), "Resume deleted", Toast.LENGTH_SHORT).show()
                         bindProfileData(updated)
+                        Toast.makeText(context, "Resume deleted", Toast.LENGTH_SHORT).show()
+
+                        if (oldStoragePath.isNotBlank()) {
+                            try {
+                                FirebaseStorage.getInstance().getReference(oldStoragePath).delete()
+                            } catch (_: Exception) {}
+                        }
                     } else {
-                        Toast.makeText(requireContext(), "Couldn't delete your resume. Please try again.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Failed to delete resume: $errorMsg", Toast.LENGTH_LONG).show()
                     }
                 }
             }
