@@ -956,10 +956,28 @@ class ProfileFragment : Fragment() {
 
     private fun viewResume() {
         val context = context ?: return
+        val uid = currentProfile.id.ifBlank { FirebaseAuth.getInstance().currentUser?.uid ?: "" }
+        val localFile = File(context.filesDir, "resume_${uid}.pdf")
+        val fileName = currentProfile.resumeFileName.ifBlank { "Resume.pdf" }
+
+        if (localFile.exists()) {
+            try {
+                Toast.makeText(context, "Opening resume...", Toast.LENGTH_SHORT).show()
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", localFile)
+                val intent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, "application/pdf")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                startActivity(intent)
+                return
+            } catch (e: Exception) {
+                Log.e("ProfileFragment", "Failed to open local file: ${e.localizedMessage}", e)
+            }
+        }
+
         val storagePath = currentProfile.resumeStoragePath
         val downloadUrl = currentProfile.resumeDownloadUrl
         val resumeData = currentProfile.resumeData
-        val fileName = currentProfile.resumeFileName.ifBlank { "Resume.pdf" }
 
         if (storagePath.isBlank() && downloadUrl.isBlank() && resumeData.isBlank()) {
             Toast.makeText(context, "No resume uploaded", Toast.LENGTH_SHORT).show()
@@ -967,7 +985,7 @@ class ProfileFragment : Fragment() {
         }
 
         // If stored as base64 resumeData directly in profile
-        if (storagePath.isBlank() && downloadUrl.isBlank() && resumeData.isNotBlank()) {
+        if (storagePath.isBlank() && downloadUrl.isBlank() && resumeData.isNotBlank() && !resumeData.startsWith("Uploaded:")) {
             try {
                 Toast.makeText(context, "Opening resume...", Toast.LENGTH_SHORT).show()
                 val bytes = Base64.decode(resumeData, Base64.NO_WRAP)
@@ -982,8 +1000,6 @@ class ProfileFragment : Fragment() {
                 return
             } catch (e: Exception) {
                 Log.e("ProfileFragment", "Failed to open local resume data: ${e.localizedMessage}", e)
-                Toast.makeText(context, "Could not open local resume: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
-                return
             }
         }
 
@@ -1051,10 +1067,27 @@ class ProfileFragment : Fragment() {
 
     private fun downloadResume() {
         val context = context ?: return
+        val uid = currentProfile.id.ifBlank { FirebaseAuth.getInstance().currentUser?.uid ?: "" }
+        val localFile = File(context.filesDir, "resume_${uid}.pdf")
+        val fileName = currentProfile.resumeFileName.ifBlank { "Resume.pdf" }
+
+        if (localFile.exists()) {
+            try {
+                Toast.makeText(context, "Downloading $fileName...", Toast.LENGTH_SHORT).show()
+                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                downloadsDir.mkdirs()
+                val targetFile = File(downloadsDir, fileName)
+                localFile.copyTo(targetFile, overwrite = true)
+                Toast.makeText(context, "Successfully downloaded $fileName to Downloads folder", Toast.LENGTH_LONG).show()
+                return
+            } catch (e: Exception) {
+                Log.e("ProfileFragment", "Failed to download local file: ${e.localizedMessage}", e)
+            }
+        }
+
         val storagePath = currentProfile.resumeStoragePath
         val downloadUrl = currentProfile.resumeDownloadUrl
         val resumeData = currentProfile.resumeData
-        val fileName = currentProfile.resumeFileName.ifBlank { "Resume.pdf" }
 
         if (storagePath.isBlank() && downloadUrl.isBlank() && resumeData.isBlank()) {
             Toast.makeText(context, "No resume uploaded", Toast.LENGTH_SHORT).show()
@@ -1062,7 +1095,7 @@ class ProfileFragment : Fragment() {
         }
 
         // If stored as base64 resumeData directly in profile
-        if (storagePath.isBlank() && downloadUrl.isBlank() && resumeData.isNotBlank()) {
+        if (storagePath.isBlank() && downloadUrl.isBlank() && resumeData.isNotBlank() && !resumeData.startsWith("Uploaded:")) {
             try {
                 Toast.makeText(context, "Downloading $fileName...", Toast.LENGTH_SHORT).show()
                 val bytes = Base64.decode(resumeData, Base64.NO_WRAP)
@@ -1074,8 +1107,6 @@ class ProfileFragment : Fragment() {
                 return
             } catch (e: Exception) {
                 Log.e("ProfileFragment", "Failed to save local resume data: ${e.localizedMessage}", e)
-                Toast.makeText(context, "Download failed: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
-                return
             }
         }
 
