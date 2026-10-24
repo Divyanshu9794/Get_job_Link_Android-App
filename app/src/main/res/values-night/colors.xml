@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <color name="colorPrimary">#1E293B</color>
+  <color name="statusBarBackground">#0F172A</color>
+  <color name="titleTextColor">#F8FAFC</color>
+  <color name="colorAccent">#14B8A6</color>
+  <color name="colorBackground">#0F172A</color>
+  <color name="colorSurface">#1E293B</color>
+  <color name="colorSurfaceElevated">#334155</color>
+  <color name="cardBackground">#1E293B</color>
+  <color name="cardStrokeColor">#334155</color>
+  <color name="inputBackground">#1E293B</color>
+  <color name="inputStrokeColor">#475569</color>
+  <color name="chipBackground">#334155</color>
+  <color name="chipTextColor">#F8FAFC</color>
+  <color name="chipStrokeColor">#475569</color>
+  <color name="dividerColor">#334155</color>
+  <color name="drawerArrow">#F8FAFC</color>
+  <color name="sidebarForeground">#F8FAFC</color>
+  <color name="sidebarBackground">#1E293B</color>
+  <color name="sidebarSeparatorColor">#334155</color>
+  <color name="sidebarHighlight">#38BDF8</color>
+  <color name="tabBarBackground">#1E293B</color>
+  <color name="tabBarTextColor">#94A3B8</color>
+  <color name="tabBarIndicator">#14B8A6</color>
+  <color name="swipe_nav_background">#1E293B</color>
+  <color name="swipe_nav_inactive">#64748B</color>
+  <color name="swipe_nav_active">#38BDF8</color>
+  <color name="pull_to_refresh_color">#14B8A6</color>
+  <color name="splash_background">#0F172A</color>
+  <color name="progress_indicator">#14B8A6</color>
+  <color name="systemNavBarBackground">#0F172A</color>
+  <color name="textColorPrimary">#F8FAFC</color>
+  <color name="textColorSecondary">#94A3B8</color>
+  <color name="headerBackground">#1E293B</color>
+  <color name="headerTitleColor">#F8FAFC</color>
+</resources>

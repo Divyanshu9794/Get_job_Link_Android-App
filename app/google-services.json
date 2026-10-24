@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "90243575495",
+    "project_id": "get-job-link",
+    "storage_bucket": "get-job-link.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:90243575495:android:b47f87cacfd49f5af298e2",
+        "android_client_info": {
+          "package_name": "co.median.android.qdqlnma.debug"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "90243575495-vc3ra9f4e1l87mtupglci2vtf3lvoirf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBNmqNqblzTz3AGGSf0rot0BbFxiTF0lJE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "90243575495-vc3ra9f4e1l87mtupglci2vtf3lvoirf.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="10dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="2dp"
+    app:cardBackgroundColor="@color/cardBackground"
+    app:strokeWidth="1dp"
+    app:strokeColor="@color/cardStrokeColor">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="14dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/jobTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Software Engineer"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="?android:attr/textColorPrimary"/>
+
+                <TextView
+                    android:id="@+id/companyName"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Company Name"
+                    android:textSize="14sp"
+                    android:textColor="@color/colorAccent"
+                    android:layout_marginTop="2dp"/>
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/jobSalary"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="$120k - $150k"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/colorAccent"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp">
+
+            <TextView
+                android:id="@+id/jobLocation"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📍 Bangalore"
+                android:textSize="12sp"
+                android:textColor="?android:attr/textColorSecondary"
+                android:layout_marginEnd="12dp"/>
+
+            <TextView
+                android:id="@+id/jobType"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="💼 Full Time"
+                android:textSize="12sp"
+                android:textColor="?android:attr/textColorSecondary"
+                android:layout_marginEnd="12dp"/>
+
+            <TextView
+                android:id="@+id/jobExperience"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🎯 1-3 Yrs"
+                android:textSize="12sp"
+                android:textColor="?android:attr/textColorSecondary"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/jobSkills"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="React • JavaScript • Node.js"
+                android:textSize="12sp"
+                android:textColor="?android:attr/textColorSecondary"
+                android:maxLines="1"
+                android:ellipsize="end"/>
+
+            <TextView
+                android:id="@+id/jobPostedDate"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Posted 26 Sep 2026"
+                android:textSize="11sp"
+                android:textColor="?android:attr/textColorSecondary"
+                android:layout_marginStart="8dp"/>
+        </LinearLayout>
+
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="?android:attr/colorBackground">
+
+    <!-- App Bar / Toolbar -->
+    <com.google.android.material.appbar.AppBarLayout
+        android:id="@+id/appBarLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/webToolbar"
+            android:layout_width="match_parent"
+            android:layout_height="?attr/actionBarSize"
+            android:background="@color/colorPrimary"
+            app:navigationIcon="@drawable/ic_close"
+            app:navigationIconTint="#FFFFFF"
+            app:title="Apply for Job"
+            app:titleTextColor="#FFFFFF"
+            app:subtitleTextColor="#E2E8F0"/>
+
+        <com.google.android.material.progressindicator.LinearProgressIndicator
+            android:id="@+id/webProgressBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:indeterminate="false"
+            android:max="100"
+            app:indicatorColor="@color/colorAccent"
+            app:trackColor="#330D9488" />
+    </com.google.android.material.appbar.AppBarLayout>
+
+    <!-- WebView Content Frame -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <WebView
+            android:id="@+id/inAppWebView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"/>
+
+        <!-- Error State Layout -->
+        <LinearLayout
+            android:id="@+id/webErrorContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="24dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:src="@drawable/ic_search_off"
+                app:tint="@android:color/darker_gray"
+                android:contentDescription="Loading Error"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Failed to load page"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="?android:attr/textColorPrimary"
+                android:layout_marginTop="12dp"/>
+
+            <TextView
+                android:id="@+id/webErrorSubtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Please check your connection and try again."
+                android:textSize="13sp"
+                android:textColor="@android:color/darker_gray"
+                android:gravity="center"
+                android:layout_marginTop="4dp"/>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/webRetryBtn"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="Retry"
+                android:textSize="12sp"
+                android:layout_marginTop="16dp"
+                app:cornerRadius="8dp"/>
+        </LinearLayout>
+
+    </FrameLayout>
+
+</LinearLayout>
