@@ -36,7 +36,15 @@ class JobAdapter(
         holder.experience.text = job.experience.ifBlank { "All Levels" }
         holder.salary.text = job.salary.ifBlank { "Competitive" }
         holder.skills.text = if (job.skills.isNotEmpty()) job.skills.joinToString(" • ") else "General"
-        holder.postedDate.text = if (job.postedDate.isNotBlank()) "Posted ${job.postedDate}" else "Posted recently"
+        holder.postedDate.text = if (job.postedDate.isNotBlank()) {
+            if (job.postedDate.startsWith("Posted", ignoreCase = true)) {
+                job.postedDate
+            } else {
+                "Posted ${job.postedDate}"
+            }
+        } else {
+            "Posted recently"
+        }
 
         holder.itemView.setOnClickListener { onItemClick(job) }
     }

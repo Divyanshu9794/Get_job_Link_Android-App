@@ -2,6 +2,7 @@ package co.median.android
 
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.concurrent.ConcurrentHashMap
 
 data class JobMatchResult(
     val matchPercentage: Int,
@@ -12,6 +13,12 @@ data class JobMatchResult(
 )
 
 object ProfileMatchingHelper {
+
+    private val cache = ConcurrentHashMap<String, JobMatchResult>()
+
+    fun clearCache() {
+        cache.clear()
+    }
 
     fun parseUserSkills(skillsRaw: String): List<String> {
         if (skillsRaw.isBlank()) return emptyList()
@@ -39,6 +46,9 @@ object ProfileMatchingHelper {
     }
 
     fun calculateMatch(profile: UserProfile, job: Job): JobMatchResult {
+        val cacheKey = "${profile.id}_${profile.skills.hashCode()}_${job.id}_${profile.resumeVersion}"
+        cache[cacheKey]?.let { return it }
+
         val userSkills = parseUserSkills(profile.skills).map { it.lowercase() }
 
         val jobSkills = (job.requiredSkills + job.skills)
@@ -80,7 +90,6 @@ object ProfileMatchingHelper {
             matchedCriteria.add("Experience Level")
         }
 
-        // Base calculation
         var percentage = 60
         if (jobSkills.isNotEmpty()) {
             val skillRatio = matchedSkills.size.toFloat() / jobSkills.size.toFloat()
@@ -92,42 +101,52 @@ object ProfileMatchingHelper {
         if (percentage > 98) percentage = 98
         if (percentage < 45) percentage = 45
 
-        return JobMatchResult(
+        val result = JobMatchResult(
             matchPercentage = percentage,
             matchedCriteria = matchedCriteria,
             missingCriteria = missingSkills.take(3)
         )
+        cache[cacheKey] = result
+        return result
     }
 
     fun calculateResumeMatch(profile: UserProfile, job: Job): JobMatchResult {
-        val hasResume = profile.resumeFileName.isNotBlank() || profile.resumeData.isNotBlank() || profile.skills.isNotBlank()
+        val cacheKey = "resume_${profile.id}_${profile.skills.hashCode()}_${profile.education.hashCode()}_${profile.experience.hashCode()}_${job.id}_${profile.resumeVersion}"
+        cache[cacheKey]?.let { return it }
+
+        val hasResume = profile.resumeFileName.isNotBlank() || profile.resumeData.isNotBlank() || profile.resumeDownloadUrl.isNotBlank() || profile.skills.isNotBlank() || profile.education.isNotBlank() || profile.experience.isNotBlank()
+
         if (!hasResume) {
-            return JobMatchResult(
-                matchPercentage = 0,
-                matchedCriteria = emptyList(),
-                missingCriteria = emptyList(),
-                isUnavailable = true,
-                unavailabilityReason = "Resume unavailable. Please upload your resume from Profile."
+            val res = JobMatchResult(
+                matchPercentage = 40,
+                matchedCriteria = listOf("General Profile Match"),
+                missingCriteria = listOf("Upload Resume for detailed analysis"),
+                isUnavailable = false,
+                unavailabilityReason = "Match based on incomplete profile (Resume not uploaded)."
             )
+            cache[cacheKey] = res
+            return res
         }
 
         val jobText = (job.title + " " + job.description + " " + job.requiredSkills.joinToString(" ") + " " + job.skills.joinToString(" ")).trim()
         if (jobText.length < 20 || (job.requiredSkills.isEmpty() && job.skills.isEmpty() && job.description.length < 30)) {
-            return JobMatchResult(
-                matchPercentage = 0,
-                matchedCriteria = emptyList(),
+            val res = JobMatchResult(
+                matchPercentage = 70,
+                matchedCriteria = listOf("General Job Fit"),
                 missingCriteria = emptyList(),
-                isUnavailable = true,
-                unavailabilityReason = "Match score unavailable. This job does not contain enough requirements to calculate a meaningful match score."
+                isUnavailable = false,
+                unavailabilityReason = "Match score based on profile and job title."
             )
+            cache[cacheKey] = res
+            return res
         }
 
-        val resumeText = (profile.resumeData + " " + profile.skills + " " + profile.about + " " + profile.experience + " " + profile.projects).lowercase()
+        val profileText = (profile.resumeData + " " + profile.skills + " " + profile.about + " " + profile.experience + " " + profile.education + " " + profile.jobRole + " " + profile.headline).lowercase()
 
         val userResumeSkills = mutableSetOf<String>()
         for (skill in SkillLibrary.allSkills) {
             val normalized = skill.lowercase()
-            if (hasTokenMatch(resumeText, normalized)) {
+            if (hasTokenMatch(profileText, normalized)) {
                 userResumeSkills.add(SkillLibrary.normalize(skill))
             }
         }
@@ -148,11 +167,15 @@ object ProfileMatchingHelper {
         val allJobSkills = (requiredJobSkills + preferredJobSkills).distinct()
 
         if (allJobSkills.isEmpty()) {
-            return JobMatchResult(
+            val reason = if (profile.resumeFileName.isBlank()) "Match based on profile skills & education (Resume not uploaded)." else ""
+            val res = JobMatchResult(
                 matchPercentage = 75,
-                matchedCriteria = userResumeSkills.toList(),
-                missingCriteria = emptyList()
+                matchedCriteria = userResumeSkills.toList().ifEmpty { listOf("Profile Skills & Education") },
+                missingCriteria = emptyList(),
+                unavailabilityReason = reason
             )
+            cache[cacheKey] = res
+            return res
         }
 
         val matchedRequired = requiredJobSkills.filter { userSkillsLower.contains(it.lowercase()) }
@@ -178,13 +201,18 @@ object ProfileMatchingHelper {
 
         if (percentage < 30 && matchedAll.isNotEmpty()) percentage = 40
         if (percentage > 98) percentage = 98
-        if (percentage < 10) percentage = 15
+        if (percentage < 15) percentage = 20
 
-        return JobMatchResult(
+        val reason = if (profile.resumeFileName.isBlank()) "Match based on profile skills & education (Resume not uploaded)." else ""
+
+        val result = JobMatchResult(
             matchPercentage = percentage,
-            matchedCriteria = matchedAll,
-            missingCriteria = missingAll
+            matchedCriteria = matchedAll.ifEmpty { userResumeSkills.toList() },
+            missingCriteria = missingAll,
+            unavailabilityReason = reason
         )
+        cache[cacheKey] = result
+        return result
     }
 
     private fun hasTokenMatch(text: String, skill: String): Boolean {

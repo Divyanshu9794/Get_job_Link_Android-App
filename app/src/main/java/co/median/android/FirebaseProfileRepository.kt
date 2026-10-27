@@ -20,6 +20,7 @@ data class UserProfile(
     val email: String = "",
     val phone: String = "",
     val photoUrl: String = "",
+    val photoStoragePath: String = "",
     val headline: String = "",
     val jobRole: String = "",
     val skills: String = "",
@@ -79,6 +80,7 @@ object FirebaseProfileRepository {
     private const val KEY_EMAIL = "profile_email"
     private const val KEY_PHONE = "profile_phone"
     private const val KEY_PHOTO_URL = "profile_photo_url"
+    private const val KEY_PHOTO_STORAGE_PATH = "profile_photo_storage_path"
     private const val KEY_HEADLINE = "profile_headline"
     private const val KEY_JOB_ROLE = "profile_job_role"
     private const val KEY_SKILLS = "profile_skills"
@@ -126,6 +128,84 @@ object FirebaseProfileRepository {
     }
 
     @JvmStatic
+    fun ensureAdminProfileSync() {
+        val currentUser = try { FirebaseAuth.getInstance().currentUser } catch (_: Exception) { null }
+        if (currentUser != null && isAdminEmail(currentUser.email)) {
+            val uid = currentUser.uid
+            val db = FirebaseFirestore.getInstance()
+            val docRef = db.collection(COLLECTION_USERS).document(uid)
+            val adminData = mapOf(
+                "uid" to uid,
+                "email" to (currentUser.email ?: ""),
+                "name" to (currentUser.displayName ?: "Admin"),
+                "role" to "admin",
+                "isAdmin" to true,
+                "updatedAt" to FieldValue.serverTimestamp()
+            )
+            docRef.set(adminData, SetOptions.merge())
+
+            val adminDocRef = db.collection("admins").document(uid)
+            val adminRefData = mapOf(
+                "uid" to uid,
+                "email" to (currentUser.email ?: ""),
+                "createdAt" to FieldValue.serverTimestamp()
+            )
+            adminDocRef.set(adminRefData, SetOptions.merge())
+        }
+    }
+
+    interface AdminCallback {
+        fun onResult(isAdmin: Boolean)
+    }
+
+    @JvmStatic
+    fun checkAdminRole(user: FirebaseUser?, callback: AdminCallback) {
+        checkAdminRole(user) { isAdmin ->
+            callback.onResult(isAdmin)
+        }
+    }
+
+    @JvmStatic
+    fun checkAdminRole(user: FirebaseUser?, onResult: (Boolean) -> Unit) {
+        if (user == null) {
+            onResult(false)
+            return
+        }
+
+        if (isAdminEmail(user.email)) {
+            onResult(true)
+            return
+        }
+
+        user.getIdToken(true).addOnCompleteListener { task ->
+            val claims = task.result?.claims
+            val isAdminClaim = claims?.get("admin") == true ||
+                               claims?.get("admin") == "true" ||
+                               claims?.get("role") == "admin" ||
+                               claims?.get("isAdmin") == true
+            if (isAdminClaim) {
+                onResult(true)
+                return@addOnCompleteListener
+            }
+
+            val uid = user.uid
+            FirebaseFirestore.getInstance().collection(COLLECTION_USERS).document(uid)
+                .get()
+                .addOnSuccessListener { snapshot ->
+                    val role = snapshot.getString("role")
+                    val isAdminDoc = role.equals("admin", ignoreCase = true) ||
+                                     snapshot.getBoolean("admin") == true ||
+                                     snapshot.getString("isAdmin") == "true" ||
+                                     isAdminEmail(user.email)
+                    onResult(isAdminDoc)
+                }
+                .addOnFailureListener {
+                    onResult(isAdminEmail(user.email))
+                }
+        }
+    }
+
+    @JvmStatic
     fun getOrCreateUserId(context: Context): String {
         val uid = getCurrentUid()
         if (!uid.isNullOrBlank()) {
@@ -169,6 +249,7 @@ object FirebaseProfileRepository {
         if (photoUrl.isBlank() && currentUser?.photoUrl != null) {
             photoUrl = currentUser.photoUrl.toString()
         }
+        val photoStoragePath = prefs.getString(KEY_PHOTO_STORAGE_PATH, "") ?: ""
 
         val role = if (isAdminEmail(email)) "admin" else (prefs.getString(KEY_ROLE, "user") ?: "user")
 
@@ -178,6 +259,7 @@ object FirebaseProfileRepository {
             email = email,
             phone = prefs.getString(KEY_PHONE, "") ?: "",
             photoUrl = photoUrl,
+            photoStoragePath = photoStoragePath,
             headline = prefs.getString(KEY_HEADLINE, "") ?: "",
             jobRole = prefs.getString(KEY_JOB_ROLE, "") ?: "",
             skills = prefs.getString(KEY_SKILLS, "") ?: "",
@@ -221,6 +303,7 @@ object FirebaseProfileRepository {
             .putString(KEY_EMAIL, profile.email)
             .putString(KEY_PHONE, profile.phone)
             .putString(KEY_PHOTO_URL, profile.photoUrl)
+            .putString(KEY_PHOTO_STORAGE_PATH, profile.photoStoragePath)
             .putString(KEY_HEADLINE, profile.headline)
             .putString(KEY_JOB_ROLE, profile.jobRole)
             .putString(KEY_SKILLS, profile.skills)
@@ -316,6 +399,13 @@ object FirebaseProfileRepository {
                 if (existingPhoto.isBlank() && !currentUser.photoUrl?.toString().isNullOrBlank()) {
                     updates["photoUrl"] = currentUser.photoUrl.toString()
                 }
+                if (isAdminEmail(currentUser.email)) {
+                    val currentRole = snapshot.getString("role") ?: ""
+                    if (currentRole != "admin") {
+                        updates["role"] = "admin"
+                        updates["isAdmin"] = true
+                    }
+                }
                 if (updates.isNotEmpty()) {
                     updates["updatedAt"] = FieldValue.serverTimestamp()
                     docRef.set(updates, SetOptions.merge())
@@ -371,6 +461,7 @@ object FirebaseProfileRepository {
 
         var photoUrl = snapshot.getString("photoUrl") ?: ""
         if (photoUrl.isBlank() && currentUser?.photoUrl != null) photoUrl = currentUser.photoUrl.toString()
+        val photoStoragePath = snapshot.getString("photoStoragePath") ?: ""
 
         val role = if (isAdminEmail(email)) "admin" else (snapshot.getString("role") ?: "user")
 
@@ -443,6 +534,7 @@ object FirebaseProfileRepository {
             "email" to profile.email,
             "phone" to profile.phone,
             "photoUrl" to profile.photoUrl,
+            "photoStoragePath" to profile.photoStoragePath,
             "headline" to profile.headline,
             "jobRole" to profile.jobRole,
             "skills" to profile.skills,

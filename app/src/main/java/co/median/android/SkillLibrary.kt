@@ -1,7 +1,7 @@
 package co.median.android
 
 object SkillLibrary {
-    val categories = mapOf(
+    val categories: Map<String, List<String>> = mapOf(
         "Programming Languages" to listOf("C", "C++", "Java", "JavaScript", "TypeScript", "Python", "Kotlin", "C#", "Go", "Rust", "PHP", "Ruby", "Swift"),
         "Frontend" to listOf("HTML", "CSS", "React.js", "Next.js", "Angular", "Vue.js", "Tailwind CSS", "Bootstrap"),
         "Backend" to listOf("Node.js", "Express.js", "Spring Boot", ".NET", "Django", "Flask", "REST API", "GraphQL"),

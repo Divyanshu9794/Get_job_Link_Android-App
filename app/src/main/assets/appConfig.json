@@ -343,7 +343,7 @@
         },
         "backgroundColor": "#FFFFFF",
         "backgroundColorDark": "#000000",
-        "showSplash": true,
+        "showSplash": false,
         "animated": false,
         "animationLoop": "once",
         "animation": null,

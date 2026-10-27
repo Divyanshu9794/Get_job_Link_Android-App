@@ -519,10 +519,22 @@ public class MainActivity extends AppCompatActivity implements Observer,
             navMenu.inflateMenu(R.menu.drawer_menu);
 
             FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-            boolean isAdmin = currentUser != null && FirebaseProfileRepository.isAdminEmail(currentUser.getEmail());
             int adminMenuId = 9999;
-            if (isAdmin) {
-                navMenu.getMenu().add(R.id.group_main, adminMenuId, 4, "Admin").setIcon(R.drawable.ic_work);
+            if (currentUser != null) {
+                FirebaseProfileRepository.checkAdminRole(currentUser, isAdmin -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    Menu menu = navMenu.getMenu();
+                    MenuItem adminItem = menu.findItem(adminMenuId);
+                    if (isAdmin) {
+                        if (adminItem == null) {
+                            menu.add(R.id.group_main, adminMenuId, 4, "Admin").setIcon(R.drawable.ic_work);
+                        }
+                    } else {
+                        if (adminItem != null) {
+                            menu.removeItem(adminMenuId);
+                        }
+                    }
+                });
             }
 
             navMenu.setCheckedItem(R.id.drawer_home);
@@ -662,7 +674,7 @@ public class MainActivity extends AppCompatActivity implements Observer,
             Intent intent = getIntent();
             url = getUrlFromIntent(intent);
 
-            if (url == null && isRoot) url = appConfig.getInitialUrl();
+            // if (url == null && isRoot) url = appConfig.getInitialUrl();
             // url from intent (hub and spoke nav)
             if (url == null) url = intent.getStringExtra("url");
 
@@ -824,21 +836,30 @@ public class MainActivity extends AppCompatActivity implements Observer,
 
     public void updateAdminMenuAndHeader() {
         NavigationView navMenu = findViewById(R.id.nav_menu);
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        int adminMenuId = 9999;
+
         if (navMenu != null) {
             Menu menu = navMenu.getMenu();
-            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-            boolean isAdmin = currentUser != null && FirebaseProfileRepository.isAdminEmail(currentUser.getEmail());
-            int adminMenuId = 9999;
-
-            MenuItem adminItem = menu.findItem(adminMenuId);
-            if (isAdmin) {
-                if (adminItem == null) {
-                    menu.add(R.id.group_main, adminMenuId, 4, "Admin").setIcon(R.drawable.ic_work);
-                }
-            } else {
+            if (currentUser == null) {
+                MenuItem adminItem = menu.findItem(adminMenuId);
                 if (adminItem != null) {
                     menu.removeItem(adminMenuId);
                 }
+            } else {
+                FirebaseProfileRepository.checkAdminRole(currentUser, isAdmin -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    MenuItem adminItem = menu.findItem(adminMenuId);
+                    if (isAdmin) {
+                        if (adminItem == null) {
+                            menu.add(R.id.group_main, adminMenuId, 4, "Admin").setIcon(R.drawable.ic_work);
+                        }
+                    } else {
+                        if (adminItem != null) {
+                            menu.removeItem(adminMenuId);
+                        }
+                    }
+                });
             }
         }
         if (sideNavManager != null) {
@@ -851,15 +872,7 @@ public class MainActivity extends AppCompatActivity implements Observer,
         super.onStart();
         if (this.authStateListener == null) {
             this.authStateListener = firebaseAuth -> {
-                FirebaseUser user = firebaseAuth.getCurrentUser();
-                if (user == null) {
-                    Intent intent = new Intent(MainActivity.this, AuthActivity.class);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                    startActivity(intent);
-                    finish();
-                } else {
-                    updateAdminMenuAndHeader();
-                }
+                updateAdminMenuAndHeader();
             };
         }
         FirebaseAuth.getInstance().addAuthStateListener(this.authStateListener);
@@ -901,6 +914,15 @@ public class MainActivity extends AppCompatActivity implements Observer,
         // check login status
         this.loginManager.checkLogin();
         updateAdminMenuAndHeader();
+
+        NotificationHelper.setupFcmToken(this);
+        NotificationHelper.requestNotificationPermission(this);
+        NotificationHelper.checkNewJobsOnAppOpen(this, (count, msg) -> {
+            if (count > 0 && sideNavManager != null) {
+                sideNavManager.updateNotificationBadge();
+            }
+            return Unit.INSTANCE;
+        });
 
         this.fileDownloader.onAppResume();
     }

@@ -4,63 +4,21 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp"
     android:background="?android:attr/colorBackground">
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btnAddJob"
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/adminTabLayout"
         android:layout_width="match_parent"
-        android:layout_height="54dp"
-        android:text="+ Add New Job Listing"
-        android:textStyle="bold"
-        android:textSize="16sp"
-        android:layout_marginBottom="16dp"
-        app:icon="@drawable/ic_add"
-        app:iconGravity="textStart"
-        app:cornerRadius="8dp"/>
-
-    <TextView
-        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Recent Job Listings"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:textColor="?android:attr/textColorPrimary"
-        android:layout_marginBottom="12dp"/>
+        app:tabMode="fixed"
+        app:tabGravity="fill"
+        app:tabSelectedTextColor="?attr/colorPrimary"
+        app:tabTextColor="?android:attr/textColorSecondary"/>
 
-    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-        android:id="@+id/adminSwipeRefresh"
+    <FrameLayout
+        android:id="@+id/adminContainer"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1">
-
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent">
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/adminJobsRecyclerView"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"/>
-
-            <ProgressBar
-                android:id="@+id/adminProgressBar"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:visibility="gone"/>
-
-            <TextView
-                android:id="@+id/adminEmptyView"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:text="No job listings found."
-                android:textSize="16sp"
-                android:textColor="@android:color/darker_gray"
-                android:visibility="gone"/>
-
-        </FrameLayout>
-    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+        android:layout_weight="1"/>
 
 </LinearLayout>

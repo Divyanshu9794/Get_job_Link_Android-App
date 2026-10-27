@@ -50,6 +50,19 @@ class JobsFragment : Fragment() {
         activeFiltersCount = view.findViewById(R.id.activeFiltersCount)
 
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
+
+        // Handle WindowInsets for bottom navigation and system navigation bar safe area
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(view) { _, insets ->
+            val navBarInsets = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars())
+            val bottomNav = requireActivity().findViewById<View>(R.id.bottom_navigation)
+            val bottomNavHeight = if (bottomNav != null && bottomNav.visibility == View.VISIBLE) bottomNav.height else 0
+            val effectiveBottomNav = if (bottomNavHeight > 0) bottomNavHeight else (56 * resources.displayMetrics.density).toInt()
+            val spacing = (16 * resources.displayMetrics.density).toInt()
+            val totalBottomPadding = effectiveBottomNav + navBarInsets.bottom + spacing
+            recyclerView.setPadding(recyclerView.paddingLeft, recyclerView.paddingTop, recyclerView.paddingRight, totalBottomPadding)
+            recyclerView.clipToPadding = false
+            insets
+        }
         jobAdapter = JobAdapter(emptyList()) { job ->
             val intent = Intent(requireContext(), JobDetailsActivity::class.java).apply {
                 putExtra("job_id", job.id)

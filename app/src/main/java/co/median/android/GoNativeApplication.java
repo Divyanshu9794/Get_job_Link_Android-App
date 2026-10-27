@@ -79,6 +79,8 @@ public class GoNativeApplication extends Application {
 
         mBridge.onApplicationCreate(this);
 
+        NotificationHelper.createNotificationChannels(this);
+
         AppConfig appConfig = AppConfig.getInstance(this);
         if (appConfig.configError != null) {
             Toast.makeText(this, "Invalid appConfig json", Toast.LENGTH_LONG).show();

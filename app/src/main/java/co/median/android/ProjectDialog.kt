@@ -1,9 +1,9 @@
 package co.median.android
 
-import android.app.Dialog
 import android.content.Context
 import android.os.Bundle
 import android.widget.Button
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.textfield.TextInputEditText
 import org.json.JSONArray
 import org.json.JSONObject
@@ -11,7 +11,7 @@ import org.json.JSONObject
 class ProjectDialog(
     context: Context,
     private val onSaved: () -> Unit
-) : Dialog(context) {
+) : BottomSheetDialog(context) {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

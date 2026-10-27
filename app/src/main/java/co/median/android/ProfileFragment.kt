@@ -49,6 +49,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.tasks.await
 import org.json.JSONArray
 import org.json.JSONObject
+import java.net.URL
 
 data class SkillEntry(
     val skill: String,
@@ -101,6 +102,7 @@ class ProfileFragment : Fragment() {
     private lateinit var addProjectBtn: TextView
 
     private lateinit var profileLogoutBtn: Button
+    private lateinit var profileDeleteAccountBtn: Button
 
     private lateinit var currentProfile: UserProfile
 
@@ -119,6 +121,23 @@ class ProfileFragment : Fragment() {
             if (uri != null) {
                 uploadResume(uri)
             }
+        }
+    }
+
+    private fun checkAuthAndRun(action: () -> Unit) {
+        val user = FirebaseAuth.getInstance().currentUser
+        if (user == null) {
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Sign In Required")
+                .setMessage("Please sign in to save profile and access personalized features.")
+                .setPositiveButton("Sign In") { _, _ ->
+                    val intent = Intent(requireContext(), AuthActivity::class.java)
+                    startActivity(intent)
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        } else {
+            action()
         }
     }
 
@@ -172,6 +191,7 @@ class ProfileFragment : Fragment() {
         addProjectBtn = view.findViewById(R.id.addProjectBtn)
 
         profileLogoutBtn = view.findViewById(R.id.profileLogoutBtn)
+        profileDeleteAccountBtn = view.findViewById(R.id.profileDeleteAccountBtn)
 
         swipeRefresh.setOnRefreshListener {
             loadProfileData()
@@ -179,46 +199,72 @@ class ProfileFragment : Fragment() {
         }
 
         val launchEditProfile = View.OnClickListener {
-            val intent = Intent(requireContext(), EditProfileActivity::class.java)
-            startActivity(intent)
+            checkAuthAndRun {
+                val sheet = ProfileBottomSheetDialog(onProfileSaved = { updatedProfile ->
+                    bindProfileData(updatedProfile)
+                })
+                sheet.show(parentFragmentManager, "profile_bottom_sheet")
+            }
         }
 
         editProfileMainBtn.setOnClickListener(launchEditProfile)
         editAboutBtn.setOnClickListener(launchEditProfile)
 
         profileAvatar.setOnClickListener {
-            showPhotoActionDialog()
+            checkAuthAndRun {
+                ProfilePhotoBottomSheetDialog {
+                    loadProfileData()
+                }.show(childFragmentManager, "photo_bottom_sheet")
+            }
         }
 
         addExperienceBtn.setOnClickListener {
-            ExperienceDialog(requireContext()) {
-                loadProfileData()
-            }.show()
+            checkAuthAndRun {
+                ExperienceDialog(requireContext()) {
+                    loadProfileData()
+                }.show()
+            }
         }
 
         addEducationBtn.setOnClickListener {
-            EducationDialog(requireContext()) {
-                loadProfileData()
-            }.show()
+            checkAuthAndRun {
+                EducationDialog(requireContext()) {
+                    loadProfileData()
+                }.show()
+            }
         }
 
         addSkillBtn.setOnClickListener {
-            showAddSkillDialog()
+            checkAuthAndRun {
+                SkillBottomSheetDialog {
+                    loadProfileData()
+                }.show(parentFragmentManager, "skill_bottom_sheet")
+            }
         }
 
         addCertificationBtn.setOnClickListener {
-            CertificationDialog(requireContext()) {
-                loadProfileData()
-            }.show()
+            checkAuthAndRun {
+                CertificationDialog(requireContext()) {
+                    loadProfileData()
+                }.show()
+            }
         }
 
         addProjectBtn.setOnClickListener {
-            ProjectDialog(requireContext()) {
-                loadProfileData()
-            }.show()
+            checkAuthAndRun {
+                ProjectDialog(requireContext()) {
+                    loadProfileData()
+                }.show()
+            }
         }
 
         openToWorkSwitch.setOnCheckedChangeListener { _, isChecked ->
+            val user = FirebaseAuth.getInstance().currentUser
+            if (user == null) {
+                openToWorkSwitch.isChecked = !isChecked
+                checkAuthAndRun {}
+                return@setOnCheckedChangeListener
+            }
             currentProfile = currentProfile.copy(openToWork = isChecked)
             FirebaseProfileRepository.saveProfileToFirebase(requireContext(), currentProfile) { _, _ ->
                 updateOpenToWorkUI(isChecked)
@@ -226,23 +272,39 @@ class ProfileFragment : Fragment() {
         }
 
         val pickResume = View.OnClickListener {
-            val intent = Intent(Intent.ACTION_GET_CONTENT).apply { type = "application/pdf" }
-            resumePickerLauncher.launch(intent)
+            checkAuthAndRun {
+                val intent = Intent(Intent.ACTION_GET_CONTENT).apply { type = "application/pdf" }
+                resumePickerLauncher.launch(intent)
+            }
         }
 
         previewResumeBtn.setOnClickListener { viewResume() }
         downloadResumeBtn.setOnClickListener { downloadResume() }
         replaceResumeBtn.setOnClickListener(pickResume)
         uploadResumeBtn.setOnClickListener(pickResume)
-        deleteResumeBtn.setOnClickListener { showDeleteResumeDialog() }
-
-        profileLogoutBtn.setOnClickListener {
-            FirebaseProfileRepository.clearLocalProfile(requireContext())
-            FirebaseAuth.getInstance().signOut()
-            val intent = Intent(requireContext(), AuthActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        deleteResumeBtn.setOnClickListener { 
+            checkAuthAndRun {
+                showDeleteResumeDialog()
             }
-            startActivity(intent)
+        }
+
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        if (currentUser == null) {
+            profileLogoutBtn.text = "Sign In"
+            profileLogoutBtn.setOnClickListener {
+                val intent = Intent(requireContext(), AuthActivity::class.java)
+                startActivity(intent)
+            }
+            profileDeleteAccountBtn.visibility = View.GONE
+        } else {
+            profileLogoutBtn.text = "Log Out"
+            profileLogoutBtn.setOnClickListener {
+                showLogoutConfirmationDialog()
+            }
+            profileDeleteAccountBtn.visibility = View.VISIBLE
+            profileDeleteAccountBtn.setOnClickListener {
+                showDeleteAccountConfirmationDialog()
+            }
         }
 
         loadProfileData()
@@ -268,6 +330,7 @@ class ProfileFragment : Fragment() {
 
     private fun bindProfileData(profile: UserProfile) {
         profileName.text = profile.name.ifBlank { "Divyanshu Singh" }
+        loadAvatarImage(profile.photoUrl, profile.name)
         profileHeadline.text = profile.headline.ifBlank { profile.jobRole.ifBlank { "Software Engineer | React | Node.js" } }
         profileLocation.text = profile.location.ifBlank { "Prayagraj, Uttar Pradesh" }
         
@@ -358,76 +421,34 @@ class ProfileFragment : Fragment() {
                 subtitleView.text = if (start.isNotBlank() || end.isNotBlank()) "$start - ${end.ifBlank { "Present" }}" else "Present"
 
                 editBtn.setOnClickListener {
-                    showEditExperienceInline(i, company, title, start, end)
+                    ExperienceDialog(requireContext(), i, obj) {
+                        loadProfileData()
+                    }.show()
                 }
 
                 deleteBtn.setOnClickListener {
-                    jsonArray.remove(i)
-                    val updated = profile.copy(experience = jsonArray.toString())
-                    FirebaseProfileRepository.saveProfileToFirebase(requireContext(), updated) { _, _ ->
-                        loadProfileData()
-                    }
+                    MaterialAlertDialogBuilder(requireContext())
+                        .setTitle("Delete Experience?")
+                        .setMessage("Are you sure you want to delete '$title at $company'?")
+                        .setPositiveButton("Delete") { _, _ ->
+                            try {
+                                val currentArr = JSONArray(profile.experience)
+                                if (i >= 0 && i < currentArr.length()) {
+                                    currentArr.remove(i)
+                                    val updated = profile.copy(experience = currentArr.toString())
+                                    FirebaseProfileRepository.saveProfileToFirebase(requireContext(), updated) { _, _ ->
+                                        loadProfileData()
+                                    }
+                                }
+                            } catch (_: Exception) {}
+                        }
+                        .setNegativeButton("Cancel", null)
+                        .show()
                 }
 
                 experienceContainer.addView(rowView)
             }
         } catch (_: Exception) {}
-    }
-
-    private fun showEditExperienceInline(index: Int, comp: String, role: String, start: String, end: String) {
-        experienceContainer.removeViewAt(index)
-
-        val editRowView = LinearLayout(requireContext()).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(16, 16, 16, 16)
-            setBackgroundResource(android.R.drawable.editbox_background_normal)
-        }
-
-        val companyEdit = EditText(requireContext()).apply { hint = "Company Name"; setText(comp); textSize = 14f }
-        val roleEdit = EditText(requireContext()).apply { hint = "Job Title / Role"; setText(role); textSize = 14f }
-        val startEdit = EditText(requireContext()).apply { hint = "Start Date (e.g. Nov 2024)"; setText(start); textSize = 14f }
-        val endEdit = EditText(requireContext()).apply { hint = "End Date (e.g. Present)"; setText(end); textSize = 14f }
-
-        val btnLayout = LinearLayout(requireContext()).apply { orientation = LinearLayout.HORIZONTAL }
-        val saveBtn = Button(requireContext()).apply { text = "Save"; textSize = 12f }
-        val cancelBtn = Button(requireContext()).apply { text = "Cancel"; textSize = 12f }
-
-        btnLayout.addView(saveBtn)
-        btnLayout.addView(cancelBtn)
-
-        editRowView.addView(companyEdit)
-        editRowView.addView(roleEdit)
-        editRowView.addView(startEdit)
-        editRowView.addView(endEdit)
-        editRowView.addView(btnLayout)
-
-        experienceContainer.addView(editRowView, index)
-
-        cancelBtn.setOnClickListener { loadProfileData() }
-        saveBtn.setOnClickListener {
-            val newComp = companyEdit.text.toString().trim()
-            val newRole = roleEdit.text.toString().trim()
-            if (newComp.isEmpty() || newRole.isEmpty()) {
-                companyEdit.error = "Required"
-                return@setOnClickListener
-            }
-
-            try {
-                val jsonArray = JSONArray(currentProfile.experience)
-                val updatedObj = JSONObject().apply {
-                    put("id", "exp_" + System.currentTimeMillis())
-                    put("company", newComp)
-                    put("title", newRole)
-                    put("startDate", startEdit.text.toString().trim())
-                    put("endDate", endEdit.text.toString().trim())
-                }
-                jsonArray.put(index, updatedObj)
-                val updated = currentProfile.copy(experience = jsonArray.toString())
-                FirebaseProfileRepository.saveProfileToFirebase(requireContext(), updated) { _, _ ->
-                    loadProfileData()
-                }
-            } catch (_: Exception) {}
-        }
     }
 
     // --- Education Table ---
@@ -890,8 +911,8 @@ class ProfileFragment : Fragment() {
     }
 
     private fun showPhotoActionDialog() {
-        val options = arrayOf("View Photo", "Change Photo")
-        AlertDialog.Builder(requireContext())
+        val options = arrayOf("View Photo", "Change Photo", "Remove Photo")
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle("Profile Photo")
             .setItems(options) { _, which ->
                 when (which) {
@@ -900,31 +921,206 @@ class ProfileFragment : Fragment() {
                         val intent = Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*" }
                         imagePickerLauncher.launch(intent)
                     }
+                    2 -> showRemovePhotoConfirmation()
                 }
             }
             .show()
     }
 
     private fun viewPhoto() {
-        AlertDialog.Builder(requireContext())
+        if (currentProfile.photoUrl.isBlank()) {
+            Toast.makeText(requireContext(), "No profile photo uploaded", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val imgView = ImageView(requireContext()).apply {
+            setPadding(24, 24, 24, 24)
+            adjustViewBounds = true
+        }
+        loadAvatarImage(currentProfile.photoUrl, currentProfile.name)
+        MaterialAlertDialogBuilder(requireContext())
             .setTitle("Profile Photo")
-            .setMessage("Viewing profile photo for ${currentProfile.name}")
+            .setView(imgView)
             .setPositiveButton("Close", null)
             .show()
     }
 
+    private fun showRemovePhotoConfirmation() {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Remove Profile Photo?")
+            .setMessage("Are you sure you want to remove your profile photo?")
+            .setPositiveButton("Remove") { _, _ ->
+                removeProfilePhoto()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun removeProfilePhoto() {
+        val user = FirebaseAuth.getInstance().currentUser ?: return
+        val uid = user.uid
+        val oldStoragePath = currentProfile.photoStoragePath
+
+        val updated = currentProfile.copy(photoUrl = "", photoStoragePath = "")
+        currentProfile = updated
+        FirebaseProfileRepository.saveProfileLocally(requireContext(), updated)
+        bindProfileData(updated)
+
+        val updateData = mapOf(
+            "photoUrl" to "",
+            "photoStoragePath" to "",
+            "updatedAt" to FieldValue.serverTimestamp()
+        )
+        FirebaseFirestore.getInstance().collection("users").document(uid)
+            .update(updateData)
+            .addOnSuccessListener {
+                Toast.makeText(requireContext(), "Profile photo removed", Toast.LENGTH_SHORT).show()
+                if (oldStoragePath.isNotBlank()) {
+                    try {
+                        FirebaseStorage.getInstance().getReference(oldStoragePath).delete()
+                    } catch (_: Exception) {}
+                }
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(requireContext(), "Failed to update profile: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+            }
+    }
+
     private fun uploadProfilePhoto(uri: Uri) {
-        Toast.makeText(requireContext(), "Uploading...", Toast.LENGTH_SHORT).show()
-        val updated = currentProfile.copy(photoUrl = uri.toString())
-        FirebaseProfileRepository.saveProfileToFirebase(requireContext(), updated) { success, _ ->
-            if (success) {
+        val context = context ?: return
+        val user = FirebaseAuth.getInstance().currentUser
+        if (user == null) {
+            Toast.makeText(context, "User not authenticated", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val uid = user.uid
+
+        try {
+            profileAvatar.imageTintList = null
+            profileAvatar.setImageURI(uri)
+        } catch (_: Exception) {}
+
+        val progressText = TextView(context).apply {
+            text = "Uploading photo... 0%"
+            setPadding(50, 30, 50, 30)
+            textSize = 15f
+            setTextColor(ContextCompat.getColor(context, R.color.textColorPrimary))
+        }
+
+        val progressDialog = MaterialAlertDialogBuilder(context)
+            .setTitle("Profile Photo Upload")
+            .setView(progressText)
+            .setCancelable(false)
+            .create()
+        progressDialog.show()
+
+        val storagePath = "users/$uid/profile/profile_photo_${System.currentTimeMillis()}.jpg"
+        val storageRef = FirebaseStorage.getInstance().reference.child(storagePath)
+
+        val uploadTask = storageRef.putFile(uri)
+        uploadTask.addOnProgressListener { taskSnapshot ->
+            val total = taskSnapshot.totalByteCount
+            if (total > 0) {
+                val progress = (100.0 * taskSnapshot.bytesTransferred / total).toInt()
+                progressText.text = "Uploading photo... $progress%"
+            }
+        }.continueWithTask { task ->
+            if (!task.isSuccessful) {
+                throw task.exception ?: Exception("Photo upload failed")
+            }
+            storageRef.downloadUrl
+        }.addOnCompleteListener { task ->
+            progressDialog.dismiss()
+            if (task.isSuccessful) {
+                val downloadUrl = task.result.toString()
+                val updated = currentProfile.copy(photoUrl = downloadUrl, photoStoragePath = storagePath)
                 currentProfile = updated
-                Toast.makeText(requireContext(), "Profile photo updated", Toast.LENGTH_SHORT).show()
-                bindProfileData(updated)
+                FirebaseProfileRepository.saveProfileToFirebase(context, updated) { success, msg ->
+                    if (success) {
+                        bindProfileData(updated)
+                        Toast.makeText(context, "Profile photo updated successfully!", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Failed to save photo metadata: $msg", Toast.LENGTH_LONG).show()
+                    }
+                }
             } else {
-                Toast.makeText(requireContext(), "Couldn't update profile photo. Please try again.", Toast.LENGTH_SHORT).show()
+                val e = task.exception
+                Toast.makeText(context, "Unable to upload profile photo. Please check your internet connection and try again. (${e?.localizedMessage})", Toast.LENGTH_LONG).show()
             }
         }
+    }
+
+    private fun loadAvatarImage(url: String, name: String) {
+        if (url.isBlank()) {
+            profileAvatar.setImageDrawable(createInitialsAvatar(requireContext(), name))
+            return
+        }
+        if (url.startsWith("content://") || url.startsWith("file://")) {
+            try {
+                profileAvatar.setImageURI(Uri.parse(url))
+            } catch (_: Exception) {
+                profileAvatar.setImageDrawable(createInitialsAvatar(requireContext(), name))
+            }
+            return
+        }
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val urlObj = URL(url)
+                val connection = urlObj.openConnection() as java.net.HttpURLConnection
+                connection.instanceFollowRedirects = true
+                connection.connectTimeout = 8000
+                connection.readTimeout = 8000
+                connection.connect()
+                val inputStream = connection.inputStream
+                val bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
+                inputStream.close()
+                withContext(Dispatchers.Main) {
+                    profileAvatar.imageTintList = null
+                    if (bitmap != null) {
+                        profileAvatar.setImageBitmap(bitmap)
+                    } else {
+                        profileAvatar.setImageDrawable(createInitialsAvatar(requireContext(), name))
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ProfileFragment", "Error loading avatar image from URL: $url", e)
+                withContext(Dispatchers.Main) {
+                    profileAvatar.imageTintList = null
+                    profileAvatar.setImageDrawable(createInitialsAvatar(requireContext(), name))
+                }
+            }
+        }
+    }
+
+    private fun createInitialsAvatar(context: Context, name: String): android.graphics.drawable.Drawable {
+        val initials = name.split(" ")
+            .filter { it.isNotBlank() }
+            .mapNotNull { it.firstOrNull()?.uppercaseChar() }
+            .take(2)
+            .joinToString("")
+            .ifEmpty { "JS" }
+
+        val size = (80 * context.resources.displayMetrics.density).toInt()
+        val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+
+        val paintBackground = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = ContextCompat.getColor(context, R.color.colorPrimary)
+            style = android.graphics.Paint.Style.FILL
+        }
+        val radius = size / 2f
+        canvas.drawCircle(radius, radius, radius, paintBackground)
+
+        val paintText = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.WHITE
+            textSize = size * 0.38f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            textAlign = android.graphics.Paint.Align.CENTER
+        }
+
+        val textY = radius - ((paintText.descent() + paintText.ascent()) / 2f)
+        canvas.drawText(initials, radius, textY, paintText)
+
+        return android.graphics.drawable.BitmapDrawable(context.resources, bitmap)
     }
 
     private fun isObjectNotFoundError(e: Throwable?): Boolean {
@@ -956,95 +1152,127 @@ class ProfileFragment : Fragment() {
 
     private fun viewResume() {
         val context = context ?: return
-        val uid = currentProfile.id.ifBlank { FirebaseAuth.getInstance().currentUser?.uid ?: "" }
-        val localFile = File(context.filesDir, "resume_${uid}.pdf")
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        val uid = currentProfile.id.ifBlank { currentUser?.uid ?: "" }
         val fileName = currentProfile.resumeFileName.ifBlank { "Resume.pdf" }
 
-        if (localFile.exists()) {
-            try {
-                Toast.makeText(context, "Opening resume...", Toast.LENGTH_SHORT).show()
-                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", localFile)
-                val intent = Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(uri, "application/pdf")
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-                startActivity(intent)
-                return
-            } catch (e: Exception) {
-                Log.e("ProfileFragment", "Failed to open local file: ${e.localizedMessage}", e)
-            }
-        }
-
+        Log.d("ProfileFragment", "Authenticated UID: $uid")
+        Log.d("ProfileFragment", "Profile document loaded: true")
+        val hasMetadata = currentProfile.resumeFileName.isNotBlank() || currentProfile.resumeStoragePath.isNotBlank() || currentProfile.resumeDownloadUrl.isNotBlank()
+        Log.d("ProfileFragment", "Resume metadata exists: $hasMetadata")
         val storagePath = currentProfile.resumeStoragePath
-        val downloadUrl = currentProfile.resumeDownloadUrl
-        val resumeData = currentProfile.resumeData
+        Log.d("ProfileFragment", "Resume storagePath exists: ${storagePath.isNotBlank()}")
+        Log.d("ProfileFragment", "Resume open started: true")
 
-        if (storagePath.isBlank() && downloadUrl.isBlank() && resumeData.isBlank()) {
+        if (storagePath.isBlank() && currentProfile.resumeDownloadUrl.isBlank() && currentProfile.resumeData.isBlank()) {
             Toast.makeText(context, "No resume uploaded", Toast.LENGTH_SHORT).show()
             return
-        }
-
-        // If stored as base64 resumeData directly in profile
-        if (storagePath.isBlank() && downloadUrl.isBlank() && resumeData.isNotBlank() && !resumeData.startsWith("Uploaded:")) {
-            try {
-                Toast.makeText(context, "Opening resume...", Toast.LENGTH_SHORT).show()
-                val bytes = Base64.decode(resumeData, Base64.NO_WRAP)
-                val tempFile = File(context.cacheDir, fileName)
-                tempFile.writeBytes(bytes)
-                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", tempFile)
-                val intent = Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(uri, "application/pdf")
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                }
-                startActivity(intent)
-                return
-            } catch (e: Exception) {
-                Log.e("ProfileFragment", "Failed to open local resume data: ${e.localizedMessage}", e)
-            }
         }
 
         Toast.makeText(context, "Opening resume...", Toast.LENGTH_SHORT).show()
 
         CoroutineScope(Dispatchers.IO).launch {
-            val targetUrl = if (storagePath.isNotBlank()) {
+            var targetUrl = ""
+            var storageRefCreated = false
+            var downloadUrlRetrieved = false
+
+            if (storagePath.isNotBlank()) {
                 try {
-                    val freshUri = FirebaseStorage.getInstance().getReference(storagePath).downloadUrl.await()
-                    val freshUrl = freshUri.toString()
-                    val updated = currentProfile.copy(resumeDownloadUrl = freshUrl)
+                    val storageRef = FirebaseStorage.getInstance().getReference(storagePath)
+                    storageRefCreated = true
+                    Log.d("ProfileFragment", "Storage reference created: true")
+
+                    val freshUri = storageRef.downloadUrl.await()
+                    downloadUrlRetrieved = true
+                    Log.d("ProfileFragment", "Download URL retrieved: true")
+                    targetUrl = freshUri.toString()
+
+                    val updated = currentProfile.copy(resumeDownloadUrl = targetUrl)
                     currentProfile = updated
                     FirebaseProfileRepository.saveProfileLocally(context, updated)
-                    val uid = currentProfile.id
                     if (uid.isNotBlank()) {
                         FirebaseFirestore.getInstance().collection("users").document(uid)
-                            .update(mapOf("resume.downloadUrl" to freshUrl, "updatedAt" to FieldValue.serverTimestamp()))
+                            .update(mapOf("resume.downloadUrl" to targetUrl, "updatedAt" to FieldValue.serverTimestamp()))
                     }
-                    freshUrl
                 } catch (e: Exception) {
+                    if (e is StorageException) {
+                        Log.e("ProfileFragment", "StorageException: errorCode=${e.errorCode}, message=${e.message}", e)
+                    } else {
+                        Log.e("ProfileFragment", "Error fetching from Storage: ${e.localizedMessage}", e)
+                    }
                     if (isObjectNotFoundError(e)) {
-                        Log.w("ProfileFragment", "Stale storage object not found at ($storagePath). Clearing stale resume metadata.")
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Previous resume file not found in storage. Please re-upload your resume.", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "Resume file is no longer available. Please upload your resume again.", Toast.LENGTH_LONG).show()
                             deleteStaleResumeLocallyAndRemotely(context)
                         }
-                        ""
-                    } else {
-                        Log.w("ProfileFragment", "Could not fetch fresh downloadUrl from storagePath ($storagePath): ${e.localizedMessage}. Falling back to cached downloadUrl.")
-                        downloadUrl
+                        return@launch
+                    } else if (currentProfile.resumeDownloadUrl.isNotBlank()) {
+                        targetUrl = currentProfile.resumeDownloadUrl
+                        downloadUrlRetrieved = true
+                    }
+                }
+            } else if (currentProfile.resumeDownloadUrl.isNotBlank()) {
+                targetUrl = currentProfile.resumeDownloadUrl
+                downloadUrlRetrieved = true
+            }
+
+            Log.d("ProfileFragment", "Storage reference created: $storageRefCreated")
+            Log.d("ProfileFragment", "Download URL retrieved: $downloadUrlRetrieved")
+
+            if (targetUrl.isBlank() && currentProfile.resumeData.isNotBlank() && !currentProfile.resumeData.startsWith("Uploaded:")) {
+                try {
+                    val bytes = Base64.decode(currentProfile.resumeData, Base64.NO_WRAP)
+                    val cacheDir = File(context.cacheDir, "downloads").apply { mkdirs() }
+                    val tempFile = File(cacheDir, fileName)
+                    tempFile.writeBytes(bytes)
+                    withContext(Dispatchers.Main) {
+                        openLocalCacheFile(context, tempFile)
+                    }
+                    return@launch
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Failed to open resume data: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                    }
+                    return@launch
+                }
+            }
+
+            if (targetUrl.isNotBlank()) {
+                try {
+                    val url = URL(targetUrl)
+                    val bytes = url.readBytes()
+                    val cacheDir = File(context.cacheDir, "downloads").apply { mkdirs() }
+                    val tempFile = File(cacheDir, fileName)
+                    tempFile.writeBytes(bytes)
+
+                    withContext(Dispatchers.Main) {
+                        openLocalCacheFile(context, tempFile)
+                    }
+                } catch (e: Exception) {
+                    Log.e("ProfileFragment", "Failed to download remote resume bytes, opening URL directly: ${e.localizedMessage}", e)
+                    withContext(Dispatchers.Main) {
+                        openResumeUrl(targetUrl)
                     }
                 }
             } else {
-                downloadUrl
-            }
-
-            withContext(Dispatchers.Main) {
-                if (targetUrl.isNotBlank()) {
-                    openResumeUrl(targetUrl)
-                } else if (currentProfile.resumeStoragePath.isNotBlank()) {
-                    // Already handled by clearing above
-                } else {
-                    Toast.makeText(context, "Resume file not found in storage. Please re-upload your resume.", Toast.LENGTH_LONG).show()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Resume file unavailable. Please upload your resume again.", Toast.LENGTH_LONG).show()
                 }
             }
+        }
+    }
+
+    private fun openLocalCacheFile(context: Context, file: File) {
+        try {
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/pdf")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            Log.e("ProfileFragment", "Failed to open local cache file via FileProvider: ${e.localizedMessage}", e)
+            Toast.makeText(context, "Failed to open resume data: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -1067,73 +1295,48 @@ class ProfileFragment : Fragment() {
 
     private fun downloadResume() {
         val context = context ?: return
-        val uid = currentProfile.id.ifBlank { FirebaseAuth.getInstance().currentUser?.uid ?: "" }
-        val localFile = File(context.filesDir, "resume_${uid}.pdf")
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        val uid = currentProfile.id.ifBlank { currentUser?.uid ?: "" }
         val fileName = currentProfile.resumeFileName.ifBlank { "Resume.pdf" }
-
-        if (localFile.exists()) {
-            try {
-                Toast.makeText(context, "Downloading $fileName...", Toast.LENGTH_SHORT).show()
-                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                downloadsDir.mkdirs()
-                val targetFile = File(downloadsDir, fileName)
-                localFile.copyTo(targetFile, overwrite = true)
-                Toast.makeText(context, "Successfully downloaded $fileName to Downloads folder", Toast.LENGTH_LONG).show()
-                return
-            } catch (e: Exception) {
-                Log.e("ProfileFragment", "Failed to download local file: ${e.localizedMessage}", e)
-            }
-        }
 
         val storagePath = currentProfile.resumeStoragePath
         val downloadUrl = currentProfile.resumeDownloadUrl
-        val resumeData = currentProfile.resumeData
 
-        if (storagePath.isBlank() && downloadUrl.isBlank() && resumeData.isBlank()) {
+        if (storagePath.isBlank() && downloadUrl.isBlank() && currentProfile.resumeData.isBlank()) {
             Toast.makeText(context, "No resume uploaded", Toast.LENGTH_SHORT).show()
             return
-        }
-
-        // If stored as base64 resumeData directly in profile
-        if (storagePath.isBlank() && downloadUrl.isBlank() && resumeData.isNotBlank() && !resumeData.startsWith("Uploaded:")) {
-            try {
-                Toast.makeText(context, "Downloading $fileName...", Toast.LENGTH_SHORT).show()
-                val bytes = Base64.decode(resumeData, Base64.NO_WRAP)
-                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                downloadsDir.mkdirs()
-                val targetFile = File(downloadsDir, fileName)
-                targetFile.writeBytes(bytes)
-                Toast.makeText(context, "Successfully saved $fileName to Downloads folder", Toast.LENGTH_LONG).show()
-                return
-            } catch (e: Exception) {
-                Log.e("ProfileFragment", "Failed to save local resume data: ${e.localizedMessage}", e)
-            }
         }
 
         Toast.makeText(context, "Downloading $fileName...", Toast.LENGTH_SHORT).show()
 
         CoroutineScope(Dispatchers.IO).launch {
-            val targetUrl = if (storagePath.isNotBlank()) {
+            var targetUrl = ""
+            if (storagePath.isNotBlank()) {
                 try {
-                    FirebaseStorage.getInstance().getReference(storagePath).downloadUrl.await().toString()
+                    val storageRef = FirebaseStorage.getInstance().getReference(storagePath)
+                    targetUrl = storageRef.downloadUrl.await().toString()
                 } catch (e: Exception) {
+                    if (e is StorageException) {
+                        Log.e("ProfileFragment", "StorageException during download: errorCode=${e.errorCode}, message=${e.message}", e)
+                    }
                     if (isObjectNotFoundError(e)) {
-                        Log.w("ProfileFragment", "Stale storage object not found at ($storagePath). Clearing stale resume metadata.")
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Previous resume file not found in storage. Please re-upload your resume.", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "Resume file is no longer available. Please upload your resume again.", Toast.LENGTH_LONG).show()
                             deleteStaleResumeLocallyAndRemotely(context)
                         }
-                        ""
-                    } else {
-                        Log.w("ProfileFragment", "Could not fetch downloadUrl for download from storagePath ($storagePath): ${e.localizedMessage}. Falling back.")
-                        downloadUrl
+                        return@launch
+                    } else if (downloadUrl.isNotBlank()) {
+                        targetUrl = downloadUrl
                     }
                 }
-            } else {
-                downloadUrl
+            } else if (downloadUrl.isNotBlank()) {
+                targetUrl = downloadUrl
             }
 
             if (targetUrl.isBlank()) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Resume file unavailable for download.", Toast.LENGTH_SHORT).show()
+                }
                 return@launch
             }
 
@@ -1380,5 +1583,103 @@ class ProfileFragment : Fragment() {
             }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun showLogoutConfirmationDialog() {
+        val context = context ?: return
+        MaterialAlertDialogBuilder(context)
+            .setTitle("Log out?")
+            .setMessage("Are you sure you want to log out of your account?")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Log Out") { _, _ ->
+                NotificationHelper.clearFcmTokenOnLogout(context)
+                FirebaseProfileRepository.clearLocalProfile(context)
+                FirebaseAuth.getInstance().signOut()
+                val intent = Intent(context, AuthActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                }
+                startActivity(intent)
+            }
+            .show()
+    }
+
+    private fun showDeleteAccountConfirmationDialog() {
+        val context = context ?: return
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        if (currentUser == null) {
+            startActivity(Intent(context, AuthActivity::class.java))
+            return
+        }
+
+        MaterialAlertDialogBuilder(context)
+            .setTitle("Delete your account?")
+            .setMessage("Deleting your account may permanently remove your profile and associated personal data. You may lose access to saved jobs, applications, preferences, and other account-related information. This action may not be reversible.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Continue") { _, _ ->
+                showDeleteAccountFinalVerificationDialog(currentUser)
+            }
+            .show()
+    }
+
+    private fun showDeleteAccountFinalVerificationDialog(user: com.google.firebase.auth.FirebaseUser) {
+        val context = context ?: return
+        val input = EditText(context).apply {
+            hint = "Type DELETE to confirm"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT
+            setPadding(40, 30, 40, 30)
+        }
+
+        MaterialAlertDialogBuilder(context)
+            .setTitle("Final Confirmation")
+            .setMessage("Please type DELETE below to confirm permanent account deletion.")
+            .setView(input)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Delete Account") { _, _ ->
+                val text = input.text.toString().trim()
+                if (text == "DELETE") {
+                    executeAccountDeletion(user)
+                } else {
+                    Toast.makeText(context, "Deletion cancelled: Text did not match DELETE", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .show()
+    }
+
+    private fun executeAccountDeletion(user: com.google.firebase.auth.FirebaseUser) {
+        val context = context ?: return
+        val progressBar = ProgressBar(context).apply {
+            isIndeterminate = true
+            setPadding(40, 40, 40, 40)
+        }
+        val progressDialog = MaterialAlertDialogBuilder(context)
+            .setTitle("Deleting account and data...")
+            .setView(progressBar)
+            .setCancelable(false)
+            .create()
+        progressDialog.show()
+
+        val uid = user.uid
+        val db = FirebaseFirestore.getInstance()
+
+        db.collection("users").document(uid).delete()
+            .addOnCompleteListener { _ ->
+                user.delete().addOnCompleteListener { task ->
+                    try {
+                        progressDialog.dismiss()
+                    } catch (_: Exception) {}
+                    if (task.isSuccessful) {
+                        NotificationHelper.clearFcmTokenOnLogout(context)
+                        FirebaseProfileRepository.clearLocalProfile(context)
+                        Toast.makeText(context, "Account deleted successfully", Toast.LENGTH_LONG).show()
+                        val intent = Intent(context, AuthActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        }
+                        startActivity(intent)
+                    } else {
+                        val error = task.exception?.localizedMessage ?: "Failed to delete authentication account"
+                        Toast.makeText(context, "Error: $error. Please sign in again and retry.", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
     }
 }

@@ -667,6 +667,9 @@ class ActionManager(private val main: MainActivity) {
 
         // default title
         var title: String = if (main.webView.title != null) main.webView.title else main.getString(R.string.app_name)
+        if (title.contains("Demo Expired", ignoreCase = true)) {
+            title = main.getString(R.string.app_name)
+        }
 
         if (!urlHasNavTitle) {
             showImageOrTextTitle(appConfig.shouldShowNavigationTitleImageForUrl(url), title)

@@ -10,6 +10,7 @@ import android.widget.Button
 import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -252,11 +253,12 @@ class JobDetailsActivity : AppCompatActivity() {
         applyBtn.text = "APPLY NOW"
         applyBtn.setOnClickListener {
             val targetUrl = if (url.isNotBlank()) url else "https://www.google.com/search?q=${Uri.encode("$title $company")}"
-            val intent = Intent(this, InAppWebViewActivity::class.java).apply {
-                putExtra("url", targetUrl)
-                putExtra("title", title)
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl))
+                startActivity(intent)
+            } catch (e: Exception) {
+                Toast.makeText(this, "Could not open application link", Toast.LENGTH_SHORT).show()
             }
-            startActivity(intent)
         }
     }
 }

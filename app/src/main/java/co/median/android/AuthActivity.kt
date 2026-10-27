@@ -113,8 +113,16 @@ class AuthActivity : AppCompatActivity() {
                     }
                 } else {
                     val msg = task.exception?.localizedMessage ?: "Unknown error"
-                    Log.e(TAG, "Guest Sign-In failed: $msg", task.exception)
-                    Toast.makeText(this, "Guest Sign-In failed: $msg", Toast.LENGTH_LONG).show()
+                    Log.w(TAG, "Firebase Anonymous Auth failed ($msg). Proceeding with local guest session.", task.exception)
+                    val guestProfile = UserProfile(
+                        id = "guest_" + System.currentTimeMillis(),
+                        name = "Guest User",
+                        email = "",
+                        role = "user"
+                    )
+                    FirebaseProfileRepository.clearLocalProfile(this)
+                    FirebaseProfileRepository.saveProfileLocally(this, guestProfile)
+                    navigateToMain()
                 }
             }
         }

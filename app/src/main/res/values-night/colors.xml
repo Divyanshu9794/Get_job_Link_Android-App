@@ -1,9 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <color name="colorPrimary">#1E293B</color>
+  <color name="colorPrimary">#2563EB</color>
+  <color name="colorOnPrimary">#FFFFFF</color>
   <color name="statusBarBackground">#0F172A</color>
   <color name="titleTextColor">#F8FAFC</color>
-  <color name="colorAccent">#14B8A6</color>
+  <color name="colorAccent">#38BDF8</color>
+  <color name="colorSecondary">#14B8A6</color>
+  <color name="colorOnSecondary">#0F172A</color>
+  <color name="colorError">#EF4444</color>
+  <color name="colorOnError">#FFFFFF</color>
   <color name="colorBackground">#0F172A</color>
   <color name="colorSurface">#1E293B</color>
   <color name="colorSurfaceElevated">#334155</color>

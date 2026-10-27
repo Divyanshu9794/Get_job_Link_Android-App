@@ -1,6 +1,7 @@
 package co.median.android
 
 import android.content.Intent
+import android.graphics.Typeface
 import android.os.Bundle
 import android.text.format.DateUtils
 import android.view.LayoutInflater
@@ -13,7 +14,10 @@ import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class NotificationsFragment : Fragment() {
 
@@ -52,8 +56,10 @@ class NotificationsFragment : Fragment() {
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
 
         adapter = NotificationHistoryAdapter(mutableListOf()) { item ->
+            val context = context ?: return@NotificationHistoryAdapter
             if (item.jobId.isNotBlank()) {
-                val intent = Intent(requireContext(), JobDetailsActivity::class.java).apply {
+                NotificationHelper.markNotificationAsRead(context, item.jobId)
+                val intent = Intent(context, JobDetailsActivity::class.java).apply {
                     putExtra("job_id", item.jobId)
                     putExtra("job_title", item.title)
                     putExtra("job_description", item.message)
@@ -61,7 +67,7 @@ class NotificationsFragment : Fragment() {
                 }
                 startActivity(intent)
             } else if (item.targetUrl.isNotBlank()) {
-                val intent = Intent(requireContext(), InAppWebViewActivity::class.java).apply {
+                val intent = Intent(context, InAppWebViewActivity::class.java).apply {
                     putExtra("url", item.targetUrl)
                     putExtra("title", item.title)
                 }
@@ -89,57 +95,58 @@ class NotificationsFragment : Fragment() {
         }
 
         val context = context ?: return
-        val historyItems = NotificationHelper.getNotificationHistory(context).toMutableList()
 
-        NotificationHelper.markAllAsRead(context)
-        NotificationMatchingHelper.markNotificationsAsRead(context)
+        NotificationHelper.checkNewJobsOnAppOpen(context) { _, _ ->
+            if (!isAdded) return@checkNewJobsOnAppOpen
+            val historyItems = NotificationHelper.getNotificationHistory(context).toMutableList()
 
-        if (historyItems.isEmpty()) {
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val allJobs = JobRepository.getAllJobs()
-                    val matchingJobs = NotificationMatchingHelper.getUnreadMatchingJobs(context, allJobs)
-                    val matchingNotificationItems = matchingJobs.map { job ->
-                        NotificationItem(
-                            title = job.title.ifBlank { "New Job Opening" },
-                            message = "${job.company.ifBlank { "Company" }} - ${job.location.ifBlank { "Remote" }} (${job.jobType.ifBlank { "Full-time" }})",
-                            targetUrl = job.applicationUrl,
-                            jobId = job.id,
-                            timestamp = job.createdAt.takeIf { it > 0 } ?: System.currentTimeMillis()
-                        )
-                    }
-                    withContext(Dispatchers.Main) {
-                        progressBar.visibility = View.GONE
-                        swipeRefreshLayout.isRefreshing = false
+            if (historyItems.isEmpty()) {
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val allJobs = JobRepository.getAllJobs()
+                        val matchingJobs = NotificationMatchingHelper.getUnreadMatchingJobs(context, allJobs)
+                        val matchingNotificationItems = matchingJobs.map { job ->
+                            NotificationItem(
+                                title = job.title.ifBlank { "New Job Opening" },
+                                message = "${job.company.ifBlank { "Company" }} - ${job.location.ifBlank { "Remote" }} (${job.jobType.ifBlank { "Full-time" }})",
+                                targetUrl = job.applicationUrl,
+                                jobId = job.id,
+                                timestamp = job.createdAt.takeIf { it > 0 } ?: System.currentTimeMillis(),
+                                read = false
+                            )
+                        }
+                        withContext(Dispatchers.Main) {
+                            if (!isAdded) return@withContext
+                            progressBar.visibility = View.GONE
+                            swipeRefreshLayout.isRefreshing = false
 
-                        val combined = matchingNotificationItems
-                        if (combined.isNotEmpty()) {
-                            emptyStateContainer.visibility = View.GONE
-                            recyclerView.visibility = View.VISIBLE
-                            adapter.updateItems(combined)
-                        } else {
+                            if (matchingNotificationItems.isNotEmpty()) {
+                                emptyStateContainer.visibility = View.GONE
+                                recyclerView.visibility = View.VISIBLE
+                                adapter.updateItems(matchingNotificationItems)
+                            } else {
+                                recyclerView.visibility = View.GONE
+                                emptyStateContainer.visibility = View.VISIBLE
+                            }
+                        }
+                    } catch (_: Exception) {
+                        withContext(Dispatchers.Main) {
+                            if (!isAdded) return@withContext
+                            progressBar.visibility = View.GONE
+                            swipeRefreshLayout.isRefreshing = false
                             recyclerView.visibility = View.GONE
                             emptyStateContainer.visibility = View.VISIBLE
                         }
                     }
-                } catch (_: Exception) {
-                    withContext(Dispatchers.Main) {
-                        progressBar.visibility = View.GONE
-                        swipeRefreshLayout.isRefreshing = false
-                        recyclerView.visibility = View.GONE
-                        emptyStateContainer.visibility = View.VISIBLE
-                    }
                 }
+            } else {
+                progressBar.visibility = View.GONE
+                swipeRefreshLayout.isRefreshing = false
+                emptyStateContainer.visibility = View.GONE
+                recyclerView.visibility = View.VISIBLE
+                adapter.updateItems(historyItems)
             }
-            return
         }
-
-        progressBar.visibility = View.GONE
-        swipeRefreshLayout.isRefreshing = false
-
-        emptyStateContainer.visibility = View.GONE
-        recyclerView.visibility = View.VISIBLE
-        adapter.updateItems(historyItems)
     }
 
     private class NotificationHistoryAdapter(
@@ -175,6 +182,13 @@ class NotificationsFragment : Fragment() {
         fun bind(item: NotificationItem, onClick: (NotificationItem) -> Unit) {
             txtTitle.text = item.title
             txtMessage.text = item.message
+
+            if (!item.read) {
+                txtTitle.setTypeface(null, Typeface.BOLD)
+                txtTitle.text = "● " + item.title
+            } else {
+                txtTitle.setTypeface(null, Typeface.NORMAL)
+            }
 
             val timeAgo = if (item.timestamp > 0) {
                 DateUtils.getRelativeTimeSpanString(

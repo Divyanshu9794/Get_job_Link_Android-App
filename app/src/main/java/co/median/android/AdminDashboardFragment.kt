@@ -1,186 +1,53 @@
 package co.median.android
 
-import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ProgressBar
-import android.widget.TextView
-import android.widget.Toast
 import androidx.fragment.app.Fragment
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-import com.google.android.material.button.MaterialButton
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withContext
+import com.google.android.material.tabs.TabLayout
 
 class AdminDashboardFragment : Fragment() {
 
-    private lateinit var btnAddJob: MaterialButton
-    private lateinit var swipeRefreshLayout: SwipeRefreshLayout
-    private lateinit var recyclerView: RecyclerView
-    private lateinit var progressBar: ProgressBar
-    private lateinit var emptyView: TextView
-    private lateinit var adminAdapter: AdminJobAdapter
-
-    private val firestore by lazy { FirebaseFirestore.getInstance() }
+    private lateinit var tabLayout: TabLayout
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+        // Ensure admin profile is synced in Firestore
+        FirebaseProfileRepository.ensureAdminProfileSync()
+
         val view = inflater.inflate(R.layout.fragment_admin_dashboard, container, false)
+        tabLayout = view.findViewById(R.id.adminTabLayout)
 
-        btnAddJob = view.findViewById(R.id.btnAddJob)
-        swipeRefreshLayout = view.findViewById(R.id.adminSwipeRefresh)
-        recyclerView = view.findViewById(R.id.adminJobsRecyclerView)
-        progressBar = view.findViewById(R.id.adminProgressBar)
-        emptyView = view.findViewById(R.id.adminEmptyView)
+        tabLayout.addTab(tabLayout.newTab().setText("Published Jobs"))
+        tabLayout.addTab(tabLayout.newTab().setText("Pending Approval"))
+        tabLayout.addTab(tabLayout.newTab().setText("Job Sources"))
 
-        recyclerView.layoutManager = LinearLayoutManager(requireContext())
-        adminAdapter = AdminJobAdapter(mutableListOf(),
-            onEdit = { job ->
-                val intent = Intent(requireContext(), AdminJobFormActivity::class.java).apply {
-                    putExtra("job_id", job.id)
+        // Load default tab (Published Jobs)
+        if (savedInstanceState == null) {
+            childFragmentManager.beginTransaction()
+                .replace(R.id.adminContainer, PublishedJobsFragment())
+                .commit()
+        }
+
+        tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab?) {
+                val fragment = when (tab?.position) {
+                    0 -> PublishedJobsFragment()
+                    1 -> PendingJobsFragment()
+                    2 -> JobSourcesFragment()
+                    else -> PublishedJobsFragment()
                 }
-                startActivity(intent)
-            },
-            onDelete = { job ->
-                showDeleteConfirmationDialog(job)
+                childFragmentManager.beginTransaction()
+                    .replace(R.id.adminContainer, fragment)
+                    .commit()
             }
-        )
-        recyclerView.adapter = adminAdapter
+            override fun onTabUnselected(tab: TabLayout.Tab?) {}
+            override fun onTabReselected(tab: TabLayout.Tab?) {}
+        })
 
-        btnAddJob.setOnClickListener {
-            val intent = Intent(requireContext(), AdminJobFormActivity::class.java)
-            startActivity(intent)
-        }
-
-        swipeRefreshLayout.setOnRefreshListener {
-            loadAdminJobs()
-        }
-
-        loadAdminJobs()
         return view
-    }
-
-    override fun onResume() {
-        super.onResume()
-        loadAdminJobs()
-    }
-
-    private fun loadAdminJobs() {
-        if (!swipeRefreshLayout.isRefreshing) {
-            progressBar.visibility = View.VISIBLE
-        }
-
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val snapshot = firestore.collection("jobs")
-                    .orderBy("createdAt", Query.Direction.DESCENDING)
-                    .get()
-                    .await()
-
-                val jobsList = snapshot.documents.map { Job.fromDocument(it) }
-
-                withContext(Dispatchers.Main) {
-                    progressBar.visibility = View.GONE
-                    swipeRefreshLayout.isRefreshing = false
-                    if (jobsList.isNotEmpty()) {
-                        emptyView.visibility = View.GONE
-                        recyclerView.visibility = View.VISIBLE
-                        adminAdapter.updateJobs(jobsList)
-                    } else {
-                        recyclerView.visibility = View.GONE
-                        emptyView.visibility = View.VISIBLE
-                    }
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    progressBar.visibility = View.GONE
-                    swipeRefreshLayout.isRefreshing = false
-                    Toast.makeText(requireContext(), "Error loading jobs: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    }
-
-    private fun showDeleteConfirmationDialog(job: Job) {
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle("Delete Job?")
-            .setMessage("Are you sure you want to delete '${job.title}' at ${job.company}?")
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Delete") { _, _ ->
-                deleteJob(job.id)
-            }
-            .show()
-    }
-
-    private fun deleteJob(jobId: String) {
-        if (jobId.isBlank()) return
-        progressBar.visibility = View.VISIBLE
-        firestore.collection("jobs").document(jobId)
-            .delete()
-            .addOnSuccessListener {
-                progressBar.visibility = View.GONE
-                Toast.makeText(requireContext(), "Job deleted successfully", Toast.LENGTH_SHORT).show()
-                loadAdminJobs()
-            }
-            .addOnFailureListener { e ->
-                progressBar.visibility = View.GONE
-                Toast.makeText(requireContext(), "Failed to delete: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
-            }
-    }
-
-    private class AdminJobAdapter(
-        private val jobs: MutableList<Job>,
-        private val onEdit: (Job) -> Unit,
-        private val onDelete: (Job) -> Unit
-    ) : RecyclerView.Adapter<AdminJobViewHolder>() {
-
-        fun updateJobs(newJobs: List<Job>) {
-            jobs.clear()
-            jobs.addAll(newJobs)
-            notifyDataSetChanged()
-        }
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AdminJobViewHolder {
-            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_admin_job, parent, false)
-            return AdminJobViewHolder(view)
-        }
-
-        override fun onBindViewHolder(holder: AdminJobViewHolder, position: Int) {
-            val job = jobs[position]
-            holder.bind(job, onEdit, onDelete)
-        }
-
-        override fun getItemCount(): Int = jobs.size
-    }
-
-    private class AdminJobViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        private val txtTitle: TextView = itemView.findViewById(R.id.adminJobTitle)
-        private val txtCompany: TextView = itemView.findViewById(R.id.adminJobCompany)
-        private val txtType: TextView = itemView.findViewById(R.id.adminJobType)
-        private val txtDate: TextView = itemView.findViewById(R.id.adminJobDate)
-        private val btnEdit: MaterialButton = itemView.findViewById(R.id.btnEditJob)
-        private val btnDelete: MaterialButton = itemView.findViewById(R.id.btnDeleteJob)
-
-        fun bind(job: Job, onEdit: (Job) -> Unit, onDelete: (Job) -> Unit) {
-            txtTitle.text = job.title
-            txtCompany.text = "${job.company} • ${job.location.ifBlank { "Remote" }}"
-            txtType.text = job.jobType.ifBlank { "Full Time" }
-            txtDate.text = job.postedDate
-
-            btnEdit.setOnClickListener { onEdit(job) }
-            btnDelete.setOnClickListener { onDelete(job) }
-        }
     }
 }

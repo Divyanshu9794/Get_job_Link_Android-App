@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -27,6 +28,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.net.URL
 
 class SideNavManager(val main: MainActivity) {
 
@@ -90,8 +92,13 @@ class SideNavManager(val main: MainActivity) {
             txtName?.text = displayName
             txtEmail?.text = email
 
-            val initialsDrawable = createInitialsAvatar(main, displayName)
-            imgAvatar?.setImageDrawable(initialsDrawable)
+            if (imgAvatar != null) {
+                if (localProfile.photoUrl.isNotBlank()) {
+                    loadAvatarImageIntoView(main, localProfile.photoUrl, displayName, imgAvatar)
+                } else {
+                    imgAvatar.setImageDrawable(createInitialsAvatar(main, displayName))
+                }
+            }
 
             layoutAccount?.setOnClickListener {
                 closeDrawer()
@@ -110,23 +117,40 @@ class SideNavManager(val main: MainActivity) {
         }
     }
 
+    private fun loadAvatarImageIntoView(context: Context, url: String, name: String, imageView: ImageView) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val connection = URL(url).openConnection()
+                connection.connectTimeout = 4000
+                connection.readTimeout = 4000
+                val inputStream = connection.getInputStream()
+                val bitmap = BitmapFactory.decodeStream(inputStream)
+                withContext(Dispatchers.Main) {
+                    if (bitmap != null) {
+                        imageView.setImageBitmap(bitmap)
+                    } else {
+                        imageView.setImageDrawable(createInitialsAvatar(context, name))
+                    }
+                }
+            } catch (_: Exception) {
+                withContext(Dispatchers.Main) {
+                    imageView.setImageDrawable(createInitialsAvatar(context, name))
+                }
+            }
+        }
+    }
+
     fun updateNotificationBadge() {
         val menuItem = navMenu.menu.findItem(R.id.drawer_notifications) ?: return
         val actionView = menuItem.actionView ?: return
         val txtBadge = actionView.findViewById<TextView>(R.id.txt_notification_badge) ?: return
 
-        CoroutineScope(Dispatchers.IO).launch {
-            val jobs = JobRepository.getAllJobs()
-            val unreadMatches = NotificationMatchingHelper.getUnreadMatchingJobs(main, jobs)
-            val count = unreadMatches.size
-            withContext(Dispatchers.Main) {
-                if (count > 0) {
-                    txtBadge.text = count.toString()
-                    txtBadge.visibility = View.VISIBLE
-                } else {
-                    txtBadge.visibility = View.GONE
-                }
-            }
+        val count = NotificationHelper.getUnreadCount(main)
+        if (count > 0) {
+            txtBadge.text = count.toString()
+            txtBadge.visibility = View.VISIBLE
+        } else {
+            txtBadge.visibility = View.GONE
         }
     }
 
@@ -218,18 +242,15 @@ class SideNavManager(val main: MainActivity) {
     fun closeDrawer() = drawerLayout.closeDrawers()
 
     fun isToggleMenuSelected(menuItem: MenuItem): Boolean {
-        if (drawerToggle?.onOptionsItemSelected(menuItem) == true) {
-            return true
-        }
-        if (menuItem.itemId == android.R.id.home && isRoot) {
-            if (isDrawerOpen()) {
-                closeDrawer()
+        if (menuItem.itemId == android.R.id.home) {
+            if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
+                drawerLayout.closeDrawer(GravityCompat.START)
             } else {
                 drawerLayout.openDrawer(GravityCompat.START)
             }
             return true
         }
-        return false
+        return drawerToggle?.onOptionsItemSelected(menuItem) == true
     }
 
     fun toggleSyncState() = drawerToggle?.syncState()
