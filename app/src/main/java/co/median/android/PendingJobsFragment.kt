@@ -14,6 +14,7 @@ import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.chip.Chip
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -30,6 +31,8 @@ import kotlinx.coroutines.withContext
 class PendingJobsFragment : Fragment() {
 
     private lateinit var editSearch: TextInputEditText
+    private lateinit var chipCompanyFilter: Chip
+    private lateinit var btnClearCompanyFilter: MaterialButton
     private lateinit var checkboxSelectAll: CheckBox
     private lateinit var txtSelectedCount: TextView
     private lateinit var btnBulkApprove: MaterialButton
@@ -45,6 +48,7 @@ class PendingJobsFragment : Fragment() {
     private val allPendingJobs = mutableListOf<PendingJob>()
     private val selectedJobIds = mutableSetOf<String>()
     private var isUpdatingSelectAll = false
+    private var selectedCompanyFilter: String = "All Companies"
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -53,6 +57,8 @@ class PendingJobsFragment : Fragment() {
         val view = inflater.inflate(R.layout.fragment_pending_jobs, container, false)
 
         editSearch = view.findViewById(R.id.editSearchPending)
+        chipCompanyFilter = view.findViewById(R.id.chipCompanyFilter)
+        btnClearCompanyFilter = view.findViewById(R.id.btnClearCompanyFilter)
         checkboxSelectAll = view.findViewById(R.id.checkboxSelectAll)
         txtSelectedCount = view.findViewById(R.id.txtSelectedCount)
         btnBulkApprove = view.findViewById(R.id.btnBulkApprove)
@@ -79,6 +85,16 @@ class PendingJobsFragment : Fragment() {
         recyclerView.adapter = adapter
 
         swipeRefreshLayout.setOnRefreshListener { loadPendingJobs() }
+
+        chipCompanyFilter.setOnClickListener {
+            showCompanyFilterBottomSheet()
+        }
+
+        btnClearCompanyFilter.setOnClickListener {
+            selectedCompanyFilter = "All Companies"
+            updateCompanyFilterUI()
+            filterJobs(editSearch.text?.toString() ?: "")
+        }
 
         checkboxSelectAll.setOnCheckedChangeListener { _, isChecked ->
             if (isUpdatingSelectAll) return@setOnCheckedChangeListener
@@ -173,6 +189,7 @@ class PendingJobsFragment : Fragment() {
                     swipeRefreshLayout.isRefreshing = false
                     allPendingJobs.clear()
                     allPendingJobs.addAll(list)
+                    updateCompanyFilterUI()
                     filterJobs(editSearch.text?.toString() ?: "")
                 }
             } catch (e: Exception) {
@@ -186,6 +203,62 @@ class PendingJobsFragment : Fragment() {
                     Toast.makeText(requireContext(), errorMsg, Toast.LENGTH_LONG).show()
                 }
             }
+        }
+    }
+
+    private fun showCompanyFilterBottomSheet() {
+        val ctx = context ?: return
+        val sheetView = LayoutInflater.from(ctx).inflate(R.layout.dialog_company_filter_bottom_sheet, null)
+        val editSearchBS = sheetView.findViewById<TextInputEditText>(R.id.editSearchCompanyBottomSheet)
+        val recyclerBS = sheetView.findViewById<RecyclerView>(R.id.recyclerCompanyFilter)
+
+        val companyCounts = allPendingJobs
+            .map { it.company.trim().ifBlank { "Tech Company" } }
+            .groupingBy { it }
+            .eachCount()
+
+        val fullList = listOf("All Companies" to allPendingJobs.size) +
+                companyCounts.toList().sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.first })
+
+        var displayList = fullList.toList()
+
+        val bottomSheet = BottomSheetDialog(ctx)
+        bottomSheet.setContentView(sheetView)
+
+        val bsAdapter = CompanyFilterAdapter(displayList) { selectedComp ->
+            selectedCompanyFilter = selectedComp
+            updateCompanyFilterUI()
+            filterJobs(editSearch.text?.toString() ?: "")
+            bottomSheet.dismiss()
+        }
+
+        recyclerBS.layoutManager = LinearLayoutManager(ctx)
+        recyclerBS.adapter = bsAdapter
+
+        editSearchBS.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                val q = (s?.toString() ?: "").trim().lowercase()
+                displayList = if (q.isBlank()) {
+                    fullList
+                } else {
+                    fullList.filter { it.first.lowercase().contains(q) }
+                }
+                bsAdapter.updateData(displayList)
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        bottomSheet.show()
+    }
+
+    private fun updateCompanyFilterUI() {
+        if (selectedCompanyFilter == "All Companies") {
+            chipCompanyFilter.text = "🏢 Company: All Companies"
+            btnClearCompanyFilter.visibility = View.GONE
+        } else {
+            chipCompanyFilter.text = "🏢 Company: $selectedCompanyFilter"
+            btnClearCompanyFilter.visibility = View.VISIBLE
         }
     }
 
@@ -206,12 +279,23 @@ class PendingJobsFragment : Fragment() {
 
     private fun filterJobs(query: String) {
         val q = query.trim().lowercase()
-        val filtered = if (q.isBlank()) {
-            allPendingJobs
-        } else {
-            allPendingJobs.filter {
-                it.title.lowercase().contains(q) || it.company.lowercase().contains(q) || it.source.lowercase().contains(q)
+        val isCompanySelected = selectedCompanyFilter != "All Companies"
+
+        val filtered = allPendingJobs.filter { job ->
+            val matchesCompany = if (isCompanySelected) {
+                job.company.trim().equals(selectedCompanyFilter.trim(), ignoreCase = true)
+            } else true
+
+            val matchesQuery = if (q.isBlank()) {
+                true
+            } else {
+                job.title.lowercase().contains(q) ||
+                job.company.lowercase().contains(q) ||
+                job.source.lowercase().contains(q) ||
+                job.location.lowercase().contains(q)
             }
+
+            matchesCompany && matchesQuery
         }
 
         if (filtered.isNotEmpty()) {
@@ -221,7 +305,7 @@ class PendingJobsFragment : Fragment() {
         } else {
             recyclerView.visibility = View.GONE
             emptyView.visibility = View.VISIBLE
-            emptyView.text = "No pending jobs for approval."
+            emptyView.text = if (isCompanySelected) "No pending jobs for $selectedCompanyFilter." else "No pending jobs for approval."
             adapter.updateJobs(emptyList())
         }
         updateSelectionUI()
@@ -234,7 +318,6 @@ class PendingJobsFragment : Fragment() {
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                // 1. Check duplicate against published jobs
                 val pubSnapshot = firestore.collection("jobs")
                     .whereEqualTo("title", job.title)
                     .whereEqualTo("company", job.company)
@@ -284,7 +367,6 @@ class PendingJobsFragment : Fragment() {
                 val newPubRef = firestore.collection("jobs").document()
                 newPubRef.set(publishedMap).await()
 
-                // 3. Update pending job status
                 firestore.collection("pending_jobs").document(job.id).update(
                     mapOf(
                         "status" to "APPROVED",
@@ -294,7 +376,6 @@ class PendingJobsFragment : Fragment() {
                     )
                 ).await()
 
-                // 4. Log approval
                 firestore.collection("job_approval_logs").add(
                     mapOf(
                         "jobId" to job.id,
@@ -474,6 +555,40 @@ class PendingJobsFragment : Fragment() {
             .setNeutralButton("Close", null)
             .setNegativeButton("Reject") { _, _ -> showRejectDialog(job.id) }
             .show()
+    }
+
+    private class CompanyFilterAdapter(
+        private var items: List<Pair<String, Int>>,
+        private val onCompanySelected: (String) -> Unit
+    ) : RecyclerView.Adapter<CompanyFilterViewHolder>() {
+
+        fun updateData(newItems: List<Pair<String, Int>>) {
+            items = newItems
+            notifyDataSetChanged()
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CompanyFilterViewHolder {
+            val view = LayoutInflater.from(parent.context).inflate(R.layout.item_company_filter, parent, false)
+            return CompanyFilterViewHolder(view)
+        }
+
+        override fun onBindViewHolder(holder: CompanyFilterViewHolder, position: Int) {
+            val (company, count) = items[position]
+            holder.bind(company, count, onCompanySelected)
+        }
+
+        override fun getItemCount(): Int = items.size
+    }
+
+    private class CompanyFilterViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val txtName: TextView = itemView.findViewById(R.id.txtCompanyName)
+        private val txtCount: TextView = itemView.findViewById(R.id.txtJobCount)
+
+        fun bind(company: String, count: Int, onCompanySelected: (String) -> Unit) {
+            txtName.text = company
+            txtCount.text = "$count pending"
+            itemView.setOnClickListener { onCompanySelected(company) }
+        }
     }
 
     private class PendingJobsAdapter(

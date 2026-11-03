@@ -50,4 +50,10 @@ class AdminDashboardFragment : Fragment() {
 
         return view
     }
+
+    fun selectPendingTab() {
+        if (::tabLayout.isInitialized) {
+            tabLayout.getTabAt(1)?.select()
+        }
+    }
 }

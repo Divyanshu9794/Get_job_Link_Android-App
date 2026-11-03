@@ -7,42 +7,20 @@
     android:padding="16dp"
     android:background="?android:attr/colorBackground">
 
-    <LinearLayout
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnFetchAllCompanies"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginBottom="16dp">
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnTriggerGlobalSync"
-            android:layout_width="0dp"
-            android:layout_height="52dp"
-            android:layout_weight="1"
-            android:text="🔄 Global Sync"
-            android:textStyle="bold"
-            android:textSize="12sp"
-            android:paddingHorizontal="4dp"
-            android:layout_marginRight="6dp"
-            android:layout_marginEnd="6dp"
-            app:cornerRadius="8dp"/>
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnFetchAllCompanies"
-            android:layout_width="0dp"
-            android:layout_height="52dp"
-            android:layout_weight="1"
-            android:text="🏢 Fetch All"
-            android:textStyle="bold"
-            android:textSize="12sp"
-            android:paddingHorizontal="4dp"
-            app:cornerRadius="8dp"/>
-
-    </LinearLayout>
+        android:layout_height="54dp"
+        android:layout_marginBottom="16dp"
+        android:text="⚡ Sync &amp; Fetch All Technical Jobs"
+        android:textStyle="bold"
+        android:textSize="14sp"
+        app:cornerRadius="10dp"/>
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Configured Authorized Job Sources"
+        android:text="Configured Technical Job Sources"
         android:textSize="18sp"
         android:textStyle="bold"
         android:textColor="?android:attr/textColorPrimary"
