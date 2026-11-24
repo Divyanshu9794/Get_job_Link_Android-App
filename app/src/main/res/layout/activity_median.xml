@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<co.median.android.widget.GoNativeDrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/drawer_layout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:openDrawer="start">
+
+    <include
+        android:id="@+id/app_bar_main"
+        layout="@layout/app_bar_main"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <com.google.android.material.navigation.NavigationView
+        android:id="@+id/nav_menu"
+        android:layout_width="280dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:background="?attr/colorSurface"
+        android:fitsSystemWindows="true"
+        app:headerLayout="@layout/side_bar_header"
+        app:menu="@menu/drawer_menu"
+        app:itemIconTint="@color/drawer_item_icon_tint"
+        app:itemTextColor="@color/drawer_item_text_color"
+        app:itemBackground="@drawable/drawer_item_background"
+        app:itemShapeInsetStart="12dp"
+        app:itemShapeInsetEnd="12dp" />
+
+</co.median.android.widget.GoNativeDrawerLayout>

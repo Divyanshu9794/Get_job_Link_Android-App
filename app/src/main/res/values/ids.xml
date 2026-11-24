@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="action_notifications" type="id" />
+    <item name="action_refresh" type="id" />
+    <item name="action_search" type="id" />
+    <item name="action_profile" type="id" />
+</resources>
